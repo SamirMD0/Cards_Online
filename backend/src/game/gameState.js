@@ -45,33 +45,46 @@ export class GameState {
       player.hand = drawCards(this.deck, 7);
     });
     
-    // Draw first card (can't be wild)
+    // Draw first card (can't be wild or action card for fair start)
     let firstCard;
     do {
       firstCard = drawCards(this.deck, 1)[0];
-    } while (firstCard.color === 'wild');
+    } while (firstCard.color === 'wild' || ['skip', 'reverse', 'draw2'].includes(firstCard.value));
     
     this.discardPile = [firstCard];
     this.currentColor = firstCard.color;
     this.currentPlayer = this.players[0].id;
     this.gameStarted = true;
+    this.winner = null;
     
     return true;
   }
 
+  // FIXED: Better deck exhaustion handling
   drawCard(playerId) {
+    // If deck is empty, reshuffle discard pile
     if (this.deck.length === 0) {
-      // Reshuffle discard pile (keep top card)
+      // Need at least 2 cards in discard pile to reshuffle
+      if (this.discardPile.length < 2) {
+        console.warn('Not enough cards to continue game');
+        return []; // Return empty array instead of null
+      }
+      
+      // Keep top card, reshuffle the rest
       const topCard = this.discardPile.pop();
-      this.deck = shuffleDeck(this.discardPile);
+      this.deck = shuffleDeck([...this.discardPile]);
       this.discardPile = [topCard];
+      
+      console.log(`Reshuffled ${this.deck.length} cards back into deck`);
     }
     
     const player = this.players.find(p => p.id === playerId);
-    if (!player) return null;
+    if (!player) return [];
     
     const cards = drawCards(this.deck, 1);
-    player.hand.push(...cards);
+    if (cards.length > 0) {
+      player.hand.push(...cards);
+    }
     return cards;
   }
 
@@ -94,8 +107,26 @@ export class GameState {
       topCard: this.discardPile[this.discardPile.length - 1],
       currentColor: this.currentColor,
       deckCount: this.deck.length,
+      pendingDraw: this.pendingDraw,
       gameStarted: this.gameStarted,
       winner: this.winner
     };
+  }
+
+  // NEW: Reset game for rematch
+  reset() {
+    this.deck = [];
+    this.discardPile = [];
+    this.currentPlayer = null;
+    this.direction = 1;
+    this.currentColor = null;
+    this.pendingDraw = 0;
+    this.gameStarted = false;
+    this.winner = null;
+    
+    // Clear all player hands
+    this.players.forEach(player => {
+      player.hand = [];
+    });
   }
 }
