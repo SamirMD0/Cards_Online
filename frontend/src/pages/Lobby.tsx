@@ -1,68 +1,161 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import Navigation from '../components/Navigation';
 import RoomCard from '../components/RoomCard';
 import CreateRoomModal from '../components/CreateRoomModal';
+import { socketService } from '../socket';
 
-// Mock data - replace with real data from your game state
-const mockRooms = [
-  {
-    id: '1',
-    roomName: "John's Game",
-    roomCode: 'ABC123',
-    players: [
-      { id: '1', name: 'John Doe', isHost: true, isReady: true },
-      { id: '2', name: 'Jane Smith', isHost: false, isReady: true },
-    ],
-    maxPlayers: 4,
-  },
-  {
-    id: '2',
-    roomName: 'Quick Match',
-    roomCode: 'XYZ789',
-    players: [
-      { id: '3', name: 'Mike Wilson', isHost: true, isReady: true },
-      { id: '4', name: 'Sarah Brown', isHost: false, isReady: false },
-      { id: '5', name: 'Tom Davis', isHost: false, isReady: true },
-    ],
-    maxPlayers: 4,
-  },
-  {
-    id: '3',
-    roomName: 'Pro Players Only',
-    roomCode: 'PRO999',
-    players: [
-      { id: '6', name: 'Alex Johnson', isHost: true, isReady: true },
-      { id: '7', name: 'Emily White', isHost: false, isReady: true },
-      { id: '8', name: 'Chris Lee', isHost: false, isReady: true },
-      { id: '9', name: 'Pat Taylor', isHost: false, isReady: false },
-    ],
-    maxPlayers: 4,
-  },
-];
+interface Room {
+  id: string;
+  roomName: string;
+  roomCode: string;
+  players: Array<{
+    id: string;
+    name: string;
+    isHost: boolean;
+    isReady: boolean;
+  }>;
+  maxPlayers: number;
+  gameStarted: boolean;
+}
 
 export default function Lobby() {
+  const navigate = useNavigate();
+  const [rooms, setRooms] = useState<Room[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [playerName, setPlayerName] = useState('');
+  const [showNamePrompt, setShowNamePrompt] = useState(false);
+  const [selectedRoomId, setSelectedRoomId] = useState<string | null>(null);
+  const [isConnected, setIsConnected] = useState(false);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    // Connect to socket
+    socketService.connect();
+
+    // Setup listeners
+    const handleConnect = () => {
+      console.log('Connected to server');
+      setIsConnected(true);
+      socketService.getRooms();
+    };
+
+    const handleDisconnect = () => {
+      console.log('Disconnected from server');
+      setIsConnected(false);
+    };
+
+    const handleRoomsList = (roomsList: Room[]) => {
+      console.log('Rooms list received:', roomsList);
+      setRooms(roomsList);
+    };
+
+    const handleRoomCreated = (data: { roomId: string; roomCode: string }) => {
+      console.log('Room created:', data);
+      // Prompt for name before joining
+      setSelectedRoomId(data.roomId);
+      setShowNamePrompt(true);
+    };
+
+    const handleJoinedRoom = (data: { roomId: string }) => {
+      console.log('Joined room:', data);
+      navigate(`/game/${data.roomId}`);
+    };
+
+    const handleError = (error: { message: string }) => {
+      console.error('Socket error:', error);
+      setError(error.message);
+      setTimeout(() => setError(''), 4000);
+    };
+
+    socketService.socket.on('connect', handleConnect);
+    socketService.socket.on('disconnect', handleDisconnect);
+    socketService.onRoomsList(handleRoomsList);
+    socketService.onRoomCreated(handleRoomCreated);
+    socketService.onJoinedRoom(handleJoinedRoom);
+    socketService.onError(handleError);
+
+    // Request rooms list every 5 seconds
+    const interval = setInterval(() => {
+      if (socketService.socket.connected) {
+        socketService.getRooms();
+      }
+    }, 5000);
+
+    // Cleanup
+    return () => {
+      clearInterval(interval);
+      socketService.off('connect', handleConnect);
+      socketService.off('disconnect', handleDisconnect);
+      socketService.off('rooms_list', handleRoomsList);
+      socketService.off('room_created', handleRoomCreated);
+      socketService.off('joined_room', handleJoinedRoom);
+      socketService.off('error', handleError);
+    };
+  }, [navigate]);
 
   const handleCreateRoom = (roomName: string, maxPlayers: number) => {
-    console.log('Creating room:', { roomName, maxPlayers });
-    // TODO: Implement room creation logic
+    if (!isConnected) {
+      setError('Not connected to server');
+      return;
+    }
+    socketService.createRoom(roomName, maxPlayers);
   };
 
   const handleJoinRoom = (roomId: string) => {
-    console.log('Joining room:', roomId);
-    // TODO: Implement join room logic
+    if (!isConnected) {
+      setError('Not connected to server');
+      return;
+    }
+    setSelectedRoomId(roomId);
+    setShowNamePrompt(true);
   };
 
-  const filteredRooms = mockRooms.filter((room) =>
+  const handleNameSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (playerName.trim() && selectedRoomId) {
+      socketService.joinRoom(selectedRoomId, playerName.trim());
+      setShowNamePrompt(false);
+      setPlayerName('');
+      setSelectedRoomId(null);
+    }
+  };
+
+  const filteredRooms = rooms.filter((room) =>
     room.roomName.toLowerCase().includes(searchQuery.toLowerCase()) ||
     room.roomCode.toLowerCase().includes(searchQuery.toLowerCase())
   );
+
+  const activeRooms = rooms.length;
+  const totalPlayers = rooms.reduce((sum, room) => sum + room.players.length, 0);
+  const gamesInProgress = rooms.filter(r => r.gameStarted).length;
 
   return (
     <div className="min-h-screen bg-dark-900">
       {/* Navigation */}
       <Navigation />
+
+      {/* Connection Status */}
+      <div className="fixed top-20 right-4 z-40">
+        <div
+          className={`flex items-center gap-2 px-4 py-2 rounded-full ${
+            isConnected ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400'
+          }`}
+        >
+          <div className={`w-2 h-2 rounded-full ${isConnected ? 'bg-green-400' : 'bg-red-400'}`} />
+          <span className="text-sm font-medium">
+            {isConnected ? 'Connected' : 'Disconnected'}
+          </span>
+        </div>
+      </div>
+
+      {/* Error Notification */}
+      {error && (
+        <div className="fixed top-20 left-1/2 transform -translate-x-1/2 z-50 bg-red-500 text-white px-6 py-3 rounded-lg shadow-lg">
+          {error}
+        </div>
+      )}
 
       {/* Content */}
       <div className="pt-24 pb-12 px-4 max-w-7xl mx-auto">
@@ -105,7 +198,8 @@ export default function Lobby() {
           {/* Create Room Button */}
           <button
             onClick={() => setIsModalOpen(true)}
-            className="px-8 py-4 bg-gradient-to-r from-uno-blue to-uno-green hover:shadow-glow-blue text-white font-semibold rounded-xl transition-all duration-300 hover:scale-105 whitespace-nowrap"
+            disabled={!isConnected}
+            className="px-8 py-4 bg-gradient-to-r from-uno-blue to-uno-green hover:shadow-glow-blue text-white font-semibold rounded-xl transition-all duration-300 hover:scale-105 whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <span className="flex items-center justify-center space-x-2">
               <svg
@@ -146,7 +240,7 @@ export default function Lobby() {
             </div>
             <div>
               <p className="text-gray-400 text-sm">Active Rooms</p>
-              <p className="text-2xl font-bold text-white">{mockRooms.length}</p>
+              <p className="text-2xl font-bold text-white">{activeRooms}</p>
             </div>
           </div>
 
@@ -168,9 +262,7 @@ export default function Lobby() {
             </div>
             <div>
               <p className="text-gray-400 text-sm">Players Online</p>
-              <p className="text-2xl font-bold text-white">
-                {mockRooms.reduce((sum, room) => sum + room.players.length, 0)}
-              </p>
+              <p className="text-2xl font-bold text-white">{totalPlayers}</p>
             </div>
           </div>
 
@@ -192,15 +284,21 @@ export default function Lobby() {
             </div>
             <div>
               <p className="text-gray-400 text-sm">Games in Progress</p>
-              <p className="text-2xl font-bold text-white">
-                {mockRooms.filter((r) => r.players.length >= 2).length}
-              </p>
+              <p className="text-2xl font-bold text-white">{gamesInProgress}</p>
             </div>
           </div>
         </div>
 
         {/* Room List */}
-        {filteredRooms.length === 0 ? (
+        {!isConnected ? (
+          <div className="text-center py-20">
+            <div className="text-6xl mb-4">🔌</div>
+            <h3 className="text-2xl font-poppins font-bold text-white mb-2">
+              Connecting to server...
+            </h3>
+            <p className="text-gray-400">Please wait</p>
+          </div>
+        ) : filteredRooms.length === 0 ? (
           <div className="text-center py-20">
             <div className="text-6xl mb-4">🎮</div>
             <h3 className="text-2xl font-poppins font-bold text-white mb-2">
@@ -240,6 +338,51 @@ export default function Lobby() {
         onClose={() => setIsModalOpen(false)}
         onCreate={handleCreateRoom}
       />
+
+      {/* Name Prompt Modal */}
+      {showNamePrompt && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm"
+          onClick={() => setShowNamePrompt(false)}
+        >
+          <div
+            className="bg-dark-800 border-2 border-dark-700 rounded-2xl p-8 max-w-md w-full"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h2 className="text-3xl font-poppins font-bold text-white mb-6">
+              Enter Your Name
+            </h2>
+            <form onSubmit={handleNameSubmit}>
+              <input
+                type="text"
+                value={playerName}
+                onChange={(e) => setPlayerName(e.target.value)}
+                placeholder="Your name..."
+                maxLength={30}
+                className="w-full px-4 py-3 bg-dark-700 border-2 border-dark-600 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-uno-blue transition-colors duration-200 mb-4"
+                autoFocus
+                required
+              />
+              <div className="flex gap-3">
+                <button
+                  type="button"
+                  onClick={() => setShowNamePrompt(false)}
+                  className="flex-1 py-3 bg-dark-700 hover:bg-dark-600 text-white font-semibold rounded-lg transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={!playerName.trim()}
+                  className="flex-1 py-3 bg-gradient-to-r from-uno-blue to-uno-green hover:shadow-glow-blue text-white font-semibold rounded-lg transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Join
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

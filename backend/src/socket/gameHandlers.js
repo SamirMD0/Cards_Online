@@ -1,15 +1,24 @@
 import { GameState } from '../game/gameState.js';
-import { canPlayCard, applyCardEffect, getNextPlayer, hasPlayableCard, checkWinner } from '../game/rules.js';
+import { canPlayCard, applyCardEffect, getNextPlayer, checkWinner } from '../game/rules.js';
 import { getBotMove } from '../bot/simpleBot.js';
 
 const games = new Map(); // roomId -> GameState
 const gameTimers = new Map(); // roomId -> timeout
 const playerRooms = new Map(); // socketId -> roomId
+const roomMetadata = new Map(); // roomId -> { roomName, roomCode, maxPlayers, createdAt }
+
 const GAME_TIMEOUT = 30 * 60 * 1000; // 30 minutes
 const VALID_COLORS = ['red', 'blue', 'green', 'yellow'];
 const MAX_BOTS = 3;
-const MAX_ROOM_ID_LENGTH = 50;
-const MAX_PLAYER_NAME_LENGTH = 30;
+
+function generateRoomCode() {
+  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+  let code = '';
+  for (let i = 0; i < 6; i++) {
+    code += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+  return code;
+}
 
 function resetGameTimer(roomId) {
   if (gameTimers.has(roomId)) {
@@ -21,6 +30,7 @@ function resetGameTimer(roomId) {
     if (game) {
       console.log(`Game ${roomId} timed out due to inactivity`);
       games.delete(roomId);
+      roomMetadata.delete(roomId);
       gameTimers.delete(roomId);
     }
   }, GAME_TIMEOUT);
@@ -28,81 +38,174 @@ function resetGameTimer(roomId) {
   gameTimers.set(roomId, timer);
 }
 
-function validateInput(roomId, playerName) {
-  const errors = [];
-  
-  if (!roomId || typeof roomId !== 'string') {
-    errors.push('Room ID is required');
-  } else if (roomId.length > MAX_ROOM_ID_LENGTH) {
-    errors.push(`Room ID too long (max ${MAX_ROOM_ID_LENGTH} chars)`);
-  } else if (!/^[a-zA-Z0-9-_]+$/.test(roomId)) {
-    errors.push('Room ID can only contain letters, numbers, hyphens, and underscores');
-  }
-  
-  if (!playerName || typeof playerName !== 'string') {
-    errors.push('Player name is required');
-  } else if (playerName.length > MAX_PLAYER_NAME_LENGTH) {
-    errors.push(`Player name too long (max ${MAX_PLAYER_NAME_LENGTH} chars)`);
-  } else if (playerName.trim().length === 0) {
-    errors.push('Player name cannot be empty');
-  }
-  
-  return errors;
+function getRoomsList() {
+  const rooms = [];
+  games.forEach((game, roomId) => {
+    const metadata = roomMetadata.get(roomId);
+    if (metadata) {
+      rooms.push({
+        id: roomId,
+        roomName: metadata.roomName,
+        roomCode: metadata.roomCode,
+        players: game.players.map(p => ({
+          id: p.id,
+          name: p.name,
+          isHost: p.id === game.players[0]?.id,
+          isReady: true,
+          isBot: p.isBot
+        })),
+        maxPlayers: metadata.maxPlayers,
+        gameStarted: game.gameStarted
+      });
+    }
+  });
+  return rooms;
 }
 
 export function setupGameHandlers(io) {
   io.on('connection', (socket) => {
     console.log(`Player connected: ${socket.id}`);
     
-    socket.on('join_room', ({ roomId, playerName }) => {
+    // Get all rooms
+    socket.on('get_rooms', () => {
+      const rooms = getRoomsList();
+      socket.emit('rooms_list', rooms);
+    });
+
+    // Create room
+    socket.on('create_room', ({ roomName, maxPlayers }) => {
       try {
-        // Validate input
-        const errors = validateInput(roomId, playerName);
-        if (errors.length > 0) {
-          socket.emit('error', { message: errors.join(', ') });
+        if (!roomName || roomName.length > 50) {
+          socket.emit('error', { message: 'Invalid room name' });
           return;
         }
-        
-        roomId = roomId.trim();
-        playerName = playerName.trim();
-        
-        let game = games.get(roomId);
-        
-        if (!game) {
-          game = new GameState(roomId);
-          games.set(roomId, game);
-          resetGameTimer(roomId);
+
+        if (maxPlayers < 2 || maxPlayers > 4) {
+          socket.emit('error', { message: 'Max players must be 2-4' });
+          return;
         }
+
+        const roomId = `room-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+        const roomCode = generateRoomCode();
         
+        const game = new GameState(roomId);
+        games.set(roomId, game);
+        
+        roomMetadata.set(roomId, {
+          roomName: roomName.trim(),
+          roomCode,
+          maxPlayers,
+          createdAt: Date.now()
+        });
+        
+        resetGameTimer(roomId);
+        
+        socket.emit('room_created', { roomId, roomCode });
+        
+        // Broadcast updated rooms list
+        io.emit('rooms_list', getRoomsList());
+        
+        console.log(`Room created: ${roomId} (${roomCode})`);
+      } catch (error) {
+        console.error('Error creating room:', error);
+        socket.emit('error', { message: 'Failed to create room' });
+      }
+    });
+
+    // Join room
+    socket.on('join_room', ({ roomId, playerName }) => {
+      try {
+        if (!roomId || !playerName) {
+          socket.emit('error', { message: 'Room ID and player name required' });
+          return;
+        }
+
+        const game = games.get(roomId);
+        if (!game) {
+          socket.emit('error', { message: 'Room not found' });
+          return;
+        }
+
+        const metadata = roomMetadata.get(roomId);
+        if (!metadata) {
+          socket.emit('error', { message: 'Room metadata not found' });
+          return;
+        }
+
         if (game.gameStarted) {
           socket.emit('error', { message: 'Game already started' });
           return;
         }
-        
-        const added = game.addPlayer(socket.id, playerName);
-        if (!added) {
-          socket.emit('error', { message: 'Room is full or player already exists' });
+
+        if (game.players.length >= metadata.maxPlayers) {
+          socket.emit('error', { message: 'Room is full' });
           return;
         }
-        
+
+        const added = game.addPlayer(socket.id, playerName.trim());
+        if (!added) {
+          socket.emit('error', { message: 'Failed to join room' });
+          return;
+        }
+
         socket.join(roomId);
         socket.data.roomId = roomId;
-        socket.data.playerName = playerName;
+        socket.data.playerName = playerName.trim();
         playerRooms.set(socket.id, roomId);
         
         resetGameTimer(roomId);
         
+        socket.emit('joined_room', { roomId });
         io.to(roomId).emit('game_state', game.getPublicState());
-        io.to(roomId).emit('player_joined', { playerId: socket.id, playerName });
+        io.to(roomId).emit('player_joined', { playerId: socket.id, playerName: playerName.trim() });
+        
+        // Broadcast updated rooms list
+        io.emit('rooms_list', getRoomsList());
+        
+        console.log(`${playerName} joined room ${roomId}`);
       } catch (error) {
-        console.error('Error in join_room:', error);
+        console.error('Error joining room:', error);
         socket.emit('error', { message: 'Failed to join room' });
       }
     });
+
+    // Leave room
+    socket.on('leave_room', () => {
+      try {
+        const roomId = playerRooms.get(socket.id);
+        if (!roomId) return;
+
+        const game = games.get(roomId);
+        if (game) {
+          game.removePlayer(socket.id);
+          
+          if (game.players.length === 0) {
+            games.delete(roomId);
+            roomMetadata.delete(roomId);
+            if (gameTimers.has(roomId)) {
+              clearTimeout(gameTimers.get(roomId));
+              gameTimers.delete(roomId);
+            }
+          } else {
+            io.to(roomId).emit('player_left', { playerId: socket.id });
+            io.to(roomId).emit('game_state', game.getPublicState());
+          }
+          
+          // Broadcast updated rooms list
+          io.emit('rooms_list', getRoomsList());
+        }
+
+        socket.leave(roomId);
+        playerRooms.delete(socket.id);
+      } catch (error) {
+        console.error('Error leaving room:', error);
+      }
+    });
     
+    // Add bot
     socket.on('add_bot', () => {
       try {
-        const { roomId } = socket.data;
+        const roomId = playerRooms.get(socket.id);
         if (!roomId) return;
         
         const game = games.get(roomId);
@@ -110,6 +213,12 @@ export function setupGameHandlers(io) {
         
         if (game.gameStarted) {
           socket.emit('error', { message: 'Cannot add bots after game started' });
+          return;
+        }
+        
+        const metadata = roomMetadata.get(roomId);
+        if (game.players.length >= metadata.maxPlayers) {
+          socket.emit('error', { message: 'Room is full' });
           return;
         }
         
@@ -127,15 +236,19 @@ export function setupGameHandlers(io) {
         
         io.to(roomId).emit('game_state', game.getPublicState());
         io.to(roomId).emit('player_joined', { playerId: botId, playerName: botName });
+        
+        // Broadcast updated rooms list
+        io.emit('rooms_list', getRoomsList());
       } catch (error) {
-        console.error('Error in add_bot:', error);
+        console.error('Error adding bot:', error);
         socket.emit('error', { message: 'Failed to add bot' });
       }
     });
     
+    // Start game
     socket.on('start_game', () => {
       try {
-        const { roomId } = socket.data;
+        const roomId = playerRooms.get(socket.id);
         if (!roomId) return;
         
         const game = games.get(roomId);
@@ -162,20 +275,24 @@ export function setupGameHandlers(io) {
           }
         });
         
+        // Broadcast updated rooms list
+        io.emit('rooms_list', getRoomsList());
+        
         // Check if first player is bot
         const firstPlayer = game.players.find(p => p.id === game.currentPlayer);
         if (firstPlayer?.isBot) {
           setTimeout(() => executeBotTurn(game, io), 1000);
         }
       } catch (error) {
-        console.error('Error in start_game:', error);
+        console.error('Error starting game:', error);
         socket.emit('error', { message: 'Failed to start game' });
       }
     });
     
+    // Play card
     socket.on('play_card', ({ cardId, chosenColor }) => {
       try {
-        const { roomId } = socket.data;
+        const roomId = playerRooms.get(socket.id);
         if (!roomId) return;
         
         const game = games.get(roomId);
@@ -198,7 +315,6 @@ export function setupGameHandlers(io) {
         const card = player.hand[cardIndex];
         const topCard = game.discardPile[game.discardPile.length - 1];
         
-        // FIXED: Check if player must draw due to pending Draw 2/4
         if (game.pendingDraw > 0 && !['draw2', 'wild_draw4'].includes(card.value)) {
           socket.emit('error', { message: `You must draw ${game.pendingDraw} cards` });
           return;
@@ -209,7 +325,6 @@ export function setupGameHandlers(io) {
           return;
         }
         
-        // FIXED: Validate wild card color
         if (card.color === 'wild') {
           if (!chosenColor || !VALID_COLORS.includes(chosenColor)) {
             socket.emit('error', { message: 'Invalid color choice' });
@@ -217,21 +332,17 @@ export function setupGameHandlers(io) {
           }
         }
         
-        // Remove card from hand
         player.hand.splice(cardIndex, 1);
         game.discardPile.push(card);
         
-        // Update color
         if (card.color === 'wild') {
           game.currentColor = chosenColor;
         } else {
           game.currentColor = card.color;
         }
         
-        // Apply card effect
         applyCardEffect(card, game);
         
-        // Check for winner
         if (checkWinner(player)) {
           game.winner = socket.id;
           clearTimeout(gameTimers.get(roomId));
@@ -242,7 +353,6 @@ export function setupGameHandlers(io) {
           return;
         }
         
-        // Move to next player
         if (!['skip', 'reverse'].includes(card.value)) {
           game.currentPlayer = getNextPlayer(game);
         }
@@ -257,20 +367,20 @@ export function setupGameHandlers(io) {
         io.to(roomId).emit('game_state', game.getPublicState());
         io.to(socket.id).emit('hand_update', { hand: player.hand });
         
-        // Check if next player is bot
         const nextPlayer = game.players.find(p => p.id === game.currentPlayer);
         if (nextPlayer?.isBot) {
           setTimeout(() => executeBotTurn(game, io), 1500);
         }
       } catch (error) {
-        console.error('Error in play_card:', error);
+        console.error('Error playing card:', error);
         socket.emit('error', { message: 'Failed to play card' });
       }
     });
     
+    // Draw card
     socket.on('draw_card', () => {
       try {
-        const { roomId } = socket.data;
+        const roomId = playerRooms.get(socket.id);
         if (!roomId) return;
         
         const game = games.get(roomId);
@@ -284,7 +394,6 @@ export function setupGameHandlers(io) {
         const player = game.players.find(p => p.id === socket.id);
         if (!player) return;
         
-        // Handle pending draws (from Draw 2 or Draw 4)
         if (game.pendingDraw > 0) {
           for (let i = 0; i < game.pendingDraw; i++) {
             game.drawCard(socket.id);
@@ -296,11 +405,9 @@ export function setupGameHandlers(io) {
           game.pendingDraw = 0;
           game.currentPlayer = getNextPlayer(game);
         } else {
-          // Normal draw
           const drawnCards = game.drawCard(socket.id);
           io.to(roomId).emit('card_drawn', { playerId: socket.id });
           
-          // Check if drawn card is playable
           const topCard = game.discardPile[game.discardPile.length - 1];
           const drawnCard = drawnCards?.[0];
           
@@ -316,42 +423,17 @@ export function setupGameHandlers(io) {
         io.to(roomId).emit('game_state', game.getPublicState());
         io.to(socket.id).emit('hand_update', { hand: player.hand });
         
-        // Check if next player is bot
         const nextPlayer = game.players.find(p => p.id === game.currentPlayer);
         if (nextPlayer?.isBot) {
           setTimeout(() => executeBotTurn(game, io), 1500);
         }
       } catch (error) {
-        console.error('Error in draw_card:', error);
+        console.error('Error drawing card:', error);
         socket.emit('error', { message: 'Failed to draw card' });
       }
     });
     
-    socket.on('restart_game', () => {
-      try {
-        const { roomId } = socket.data;
-        if (!roomId) return;
-        
-        const game = games.get(roomId);
-        if (!game) return;
-        
-        if (!game.gameStarted && !game.winner) {
-          socket.emit('error', { message: 'No game to restart' });
-          return;
-        }
-        
-        // Reset game state
-        game.reset();
-        
-        resetGameTimer(roomId);
-        
-        io.to(roomId).emit('game_reset', game.getPublicState());
-      } catch (error) {
-        console.error('Error in restart_game:', error);
-        socket.emit('error', { message: 'Failed to restart game' });
-      }
-    });
-    
+    // Disconnect
     socket.on('disconnect', () => {
       try {
         const roomId = playerRooms.get(socket.id);
@@ -362,6 +444,7 @@ export function setupGameHandlers(io) {
           
           if (game.players.length === 0) {
             games.delete(roomId);
+            roomMetadata.delete(roomId);
             if (gameTimers.has(roomId)) {
               clearTimeout(gameTimers.get(roomId));
               gameTimers.delete(roomId);
@@ -370,7 +453,6 @@ export function setupGameHandlers(io) {
             io.to(roomId).emit('player_left', { playerId: socket.id });
             io.to(roomId).emit('game_state', game.getPublicState());
             
-            // If disconnected player was current player and game is active
             if (game.gameStarted && game.currentPlayer === socket.id) {
               game.currentPlayer = game.players[0].id;
               const nextPlayer = game.players.find(p => p.id === game.currentPlayer);
@@ -379,6 +461,9 @@ export function setupGameHandlers(io) {
               }
             }
           }
+          
+          // Broadcast updated rooms list
+          io.emit('rooms_list', getRoomsList());
         }
         
         playerRooms.delete(socket.id);
@@ -390,10 +475,8 @@ export function setupGameHandlers(io) {
   });
 }
 
-// FIXED: Added safeguards to prevent infinite bot loops
 function executeBotTurn(game, io) {
   try {
-    // Check if game still exists
     if (!games.has(game.roomId)) return;
     
     const bot = game.players.find(p => p.id === game.currentPlayer);
@@ -401,7 +484,6 @@ function executeBotTurn(game, io) {
     
     const topCard = game.discardPile[game.discardPile.length - 1];
     
-    // Handle pending draws
     if (game.pendingDraw > 0) {
       for (let i = 0; i < game.pendingDraw; i++) {
         game.drawCard(bot.id);
@@ -456,14 +538,8 @@ function executeBotTurn(game, io) {
     
     io.to(game.roomId).emit('game_state', game.getPublicState());
     
-    // FIXED: Add limit to prevent infinite bot chains
     const nextPlayer = game.players.find(p => p.id === game.currentPlayer);
     if (nextPlayer?.isBot && games.has(game.roomId)) {
-      // Check if all players are bots (edge case)
-      const allBots = game.players.every(p => p.isBot);
-      if (allBots) {
-        console.log(`Warning: All players are bots in room ${game.roomId}`);
-      }
       setTimeout(() => executeBotTurn(game, io), 1500);
     }
   } catch (error) {

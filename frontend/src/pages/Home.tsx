@@ -8,13 +8,6 @@ export default function Home() {
     <div className="relative min-h-screen overflow-hidden">
       {/* Background */}
       <div className="fixed inset-0 z-0">
-
-         <img 
-    src="/src/assets/game-background.png" 
-    alt="Background"
-    className="w-full h-full object-cover"
-  />
-  
         {/* Dark interrogation room background */}
         <div className="absolute inset-0 bg-gradient-radial from-dark-800 via-dark-900 to-black" />
         
