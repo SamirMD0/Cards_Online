@@ -1,0 +1,2 @@
+- [ ] Import game-background.png in Home.tsx
+- [ ] Add background-image style to the main background div in Home.tsx

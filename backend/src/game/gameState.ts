@@ -1,99 +1,118 @@
+import { Card, CardColor, Player, PublicGameState } from '../types/game.types.js';
 import { createDeck, drawCards, shuffleDeck } from './deck.js';
 import { getNextPlayer } from './rules.js';
 
+
+/* ===== Types ===== */
+
+export type Direction = 1 | -1;
+
+/* ===== GameState ===== */
+
 export class GameState {
-  constructor(roomId) {
+  roomId: string;
+  players: Player[];
+  deck: Card[];
+  discardPile: Card[];
+  currentPlayer: string | null;
+  direction: Direction;
+  currentColor: CardColor | null;
+  pendingDraw: number;
+  gameStarted: boolean;
+  winner: string | null;
+
+  constructor(roomId: string) {
     this.roomId = roomId;
     this.players = [];
     this.deck = [];
     this.discardPile = [];
     this.currentPlayer = null;
-    this.direction = 1; // 1 = clockwise, -1 = counterclockwise
-    this.currentColor = null; // For wild cards
-    this.pendingDraw = 0; // For stacking draw cards
+    this.direction = 1;
+    this.currentColor = null;
+    this.pendingDraw = 0;
     this.gameStarted = false;
     this.winner = null;
   }
 
-  addPlayer(playerId, playerName, isBot = false) {
+  addPlayer(playerId: string, playerName: string, isBot: boolean = false): boolean {
     if (this.players.length >= 4) return false;
     if (this.players.some(p => p.id === playerId)) return false;
-    
+
     this.players.push({
       id: playerId,
       name: playerName,
       hand: [],
       isBot
     });
+
     return true;
   }
 
-  removePlayer(playerId) {
+  removePlayer(playerId: string): void {
     this.players = this.players.filter(p => p.id !== playerId);
+
     if (this.currentPlayer === playerId && this.players.length > 0) {
       this.currentPlayer = this.players[0].id;
     }
   }
 
-  startGame() {
+  startGame(): boolean {
     if (this.players.length < 2) return false;
-    
+
     this.deck = createDeck();
-    
+
     // Deal 7 cards to each player
     this.players.forEach(player => {
       player.hand = drawCards(this.deck, 7);
     });
-    
-    // Draw first card (can't be wild or action card for fair start)
-    let firstCard;
+
+    // Draw first card (no wild or action)
+    let firstCard: Card;
     do {
       firstCard = drawCards(this.deck, 1)[0];
-    } while (firstCard.color === 'wild' || ['skip', 'reverse', 'draw2'].includes(firstCard.value));
-    
+    } while (
+      firstCard.color === 'wild' ||
+      ['skip', 'reverse', 'draw2'].includes(firstCard.value.toString())
+    );
+
     this.discardPile = [firstCard];
     this.currentColor = firstCard.color;
     this.currentPlayer = this.players[0].id;
     this.gameStarted = true;
     this.winner = null;
-    
+
     return true;
   }
 
-  // FIXED: Better deck exhaustion handling
-  drawCard(playerId) {
-    // If deck is empty, reshuffle discard pile
+  drawCard(playerId: string): Card[] {
     if (this.deck.length === 0) {
-      // Need at least 2 cards in discard pile to reshuffle
       if (this.discardPile.length < 2) {
         console.warn('Not enough cards to continue game');
-        return []; // Return empty array instead of null
+        return [];
       }
-      
-      // Keep top card, reshuffle the rest
-      const topCard = this.discardPile.pop();
+
+      const topCard = this.discardPile.pop() as Card;
       this.deck = shuffleDeck([...this.discardPile]);
       this.discardPile = [topCard];
-      
-      console.log(`Reshuffled ${this.deck.length} cards back into deck`);
     }
-    
+
     const player = this.players.find(p => p.id === playerId);
     if (!player) return [];
-    
+
     const cards = drawCards(this.deck, 1);
     if (cards.length > 0) {
       player.hand.push(...cards);
     }
+
     return cards;
   }
 
-  getPlayerHand(playerId) {
+  getPlayerHand(playerId: string): Card[] {
     const player = this.players.find(p => p.id === playerId);
     return player ? player.hand : [];
   }
 
-  getPublicState() {
+  getPublicState(): PublicGameState {
     return {
       roomId: this.roomId,
       players: this.players.map(p => ({
@@ -104,7 +123,7 @@ export class GameState {
       })),
       currentPlayer: this.currentPlayer,
       direction: this.direction,
-      topCard: this.discardPile[this.discardPile.length - 1],
+      topCard: this.discardPile.length > 0 ? this.discardPile[this.discardPile.length - 1] : null,
       currentColor: this.currentColor,
       deckCount: this.deck.length,
       pendingDraw: this.pendingDraw,
@@ -113,8 +132,7 @@ export class GameState {
     };
   }
 
-  // NEW: Reset game for rematch
-  reset() {
+  reset(): void {
     this.deck = [];
     this.discardPile = [];
     this.currentPlayer = null;
@@ -123,8 +141,7 @@ export class GameState {
     this.pendingDraw = 0;
     this.gameStarted = false;
     this.winner = null;
-    
-    // Clear all player hands
+
     this.players.forEach(player => {
       player.hand = [];
     });

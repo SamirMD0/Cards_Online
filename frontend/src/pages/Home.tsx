@@ -1,7 +1,6 @@
 import Navigation from '../components/Navigation';
-import GameTable from '../components/GameTable';
 import PlayButton from '../components/PlayButton';
-import UnoCard from '../components/UnoCard';
+import gameBackground from '../assets/game-background.png';
 
 export default function Home() {
   return (
@@ -9,7 +8,7 @@ export default function Home() {
       {/* Background */}
       <div className="fixed inset-0 z-0">
         {/* Dark interrogation room background */}
-        <div className="absolute inset-0 bg-gradient-radial from-dark-800 via-dark-900 to-black" />
+        <div className="absolute inset-0 bg-gradient-radial from-dark-800 via-dark-900 to-black" style={{ backgroundImage: `url(${gameBackground})`, backgroundSize: 'cover', backgroundPosition: 'center' }} />
         
         {/* Vignette Effect */}
         <div 
@@ -48,33 +47,10 @@ export default function Home() {
             The Classic Card Game, Reimagined
           </p>
         </div>
-
-        {/* Game Table with Cards */}
-        <div className="mb-12">
-          <GameTable>
-            <div className="flex items-center justify-center space-x-4">
-              {/* Sample cards fanned out */}
-              <div className="transform -rotate-12">
-                <UnoCard color="red" value="7" disabled />
-              </div>
-              <div className="transform -rotate-6">
-                <UnoCard color="blue" value="SKIP" disabled />
-              </div>
-              <div className="transform rotate-0 scale-110 z-10">
-                <UnoCard color="wild" value="WILD" disabled />
-              </div>
-              <div className="transform rotate-6">
-                <UnoCard color="green" value="2" disabled />
-              </div>
-              <div className="transform rotate-12">
-                <UnoCard color="yellow" value="DRAW" disabled />
-              </div>
-            </div>
-          </GameTable>
-        </div>
-
+   
+        
         {/* Play Button */}
-        <PlayButton />
+        <PlayButton  />
 
         {/* Features */}
         <div className="mt-20 grid grid-cols-1 md:grid-cols-3 gap-8 max-w-5xl">
