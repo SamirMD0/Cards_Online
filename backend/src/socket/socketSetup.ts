@@ -3,16 +3,9 @@ import { Socket } from '../types/socket.types.js';
 import { RoomService } from '../services/RoomService.js';
 import { GameStateManager } from '../managers/GameStateManager.js';
 import { setupRoomHandlers, handlePlayerLeave } from './handlers/roomHandlers.js';
-// import { setupGameHandlers } from './handlers/gameHandlers.js'; // TODO: Create this
-
-/**
- * Socket Setup: Initialize Socket.IO with all handlers
- * 
- * This is the ONLY place where Socket.IO is configured
- */
+import { setupGameHandlers } from './handlers/gameHandlers.js'; // ADD THIS IMPORT
 
 export function setupSocketIO(io: Server): void {
-  // Get singleton instances of services
   const roomService = RoomService.getInstance();
   const gameManager = GameStateManager.getInstance();
 
@@ -21,7 +14,7 @@ export function setupSocketIO(io: Server): void {
 
     // Setup all handlers
     setupRoomHandlers(io, socket, roomService, gameManager);
-    // setupGameHandlers(io, socket, roomService, gameManager); // TODO
+    setupGameHandlers(io, socket, roomService, gameManager); // ADD THIS LINE
 
     // Handle disconnection
     socket.on('disconnect', () => {
@@ -32,9 +25,6 @@ export function setupSocketIO(io: Server): void {
   console.log('[Socket] Socket.IO configured successfully');
 }
 
-/**
- * Handle player disconnection
- */
 function handleDisconnection(
   io: Server,
   socket: Socket,

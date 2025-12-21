@@ -19,42 +19,67 @@ export function hasPlayableCard(hand: Card[], topCard: Card, chosenColor: CardCo
   return hand.some(card => canPlayCard(card, topCard, chosenColor));
 }
 
-export function applyCardEffect(card: Card, gameState: any) {
+export function applyCardEffect(card: Card, gameState: GameState): void {
   const { value } = card;
   const valueStr = value.toString();
 
   switch (valueStr) {
     case 'skip':
+      // Skip next player
       gameState.currentPlayer = getNextPlayer(gameState, 1);
       break;
 
     case 'reverse':
-      gameState.direction *= -1;
+      // Reverse direction
+      gameState.direction *= -1 as 1 | -1;
+      
+      // In 2-player game, reverse acts as skip
       if (gameState.players.length === 2) {
-        // In 2-player, reverse acts as skip
         gameState.currentPlayer = getNextPlayer(gameState, 1);
       }
       break;
 
     case 'draw2':
+      // Next player must draw 2
       gameState.pendingDraw = (gameState.pendingDraw || 0) + 2;
       break;
 
     case 'wild_draw4':
+      // Next player must draw 4
       gameState.pendingDraw = (gameState.pendingDraw || 0) + 4;
       break;
-  }
 
-  return gameState;
+    default:
+      // No effect for number cards or regular wild
+      break;
+  }
 }
 
-export function getNextPlayer(gameState: any, skip = 0): string {
+export function getNextPlayer(gameState: GameState, skip: number = 0): string {
   const { players, currentPlayer, direction } = gameState;
-  const currentIndex = players.findIndex((p: any) => p.id === currentPlayer);
-  const nextIndex = (currentIndex + direction * (1 + skip) + players.length) % players.length;
+  
+  if (players.length === 0) {
+    throw new Error('No players in game');
+  }
+  
+  const currentIndex = players.findIndex(p => p.id === currentPlayer);
+  
+  if (currentIndex === -1) {
+    // Current player not found, return first player
+    return players[0].id;
+  }
+  
+  const move = direction * (1 + skip);
+  let nextIndex = (currentIndex + move) % players.length;
+  
+  // Handle negative indices
+  if (nextIndex < 0) {
+    nextIndex = players.length + nextIndex;
+  }
+  
   return players[nextIndex].id;
 }
 
-export function checkWinner(player: any): boolean {
+export function checkWinner(player: { hand: Card[] }): boolean {
   return player.hand.length === 0;
 }
