@@ -30,70 +30,75 @@ export default function Lobby() {
   const [isConnected, setIsConnected] = useState(false);
   const [error, setError] = useState('');
 
-  useEffect(() => {
-    // Connect to socket
-    socketService.connect();
+ useEffect(() => {
+  // Connect to socket
+  socketService.connect();
 
-    // Setup listeners
-    const handleConnect = () => {
-      console.log('Connected to server');
-      setIsConnected(true);
+  // Setup listeners
+  const handleConnect = () => {
+    console.log('Connected to server');
+    setIsConnected(true);
+    socketService.getRooms(); // Request rooms after connection
+  };
+
+  const handleDisconnect = () => {
+    console.log('Disconnected from server');
+    setIsConnected(false);
+  };
+
+  const handleRoomsList = (roomsList: Room[]) => {
+    console.log('Rooms list received:', roomsList);
+    setRooms(roomsList);
+  };
+
+  const handleRoomCreated = (data: { roomId: string; roomCode: string }) => {
+    console.log('Room created:', data);
+    setSelectedRoomId(data.roomId);
+    setShowNamePrompt(true);
+  };
+
+  const handleJoinedRoom = (data: { roomId: string }) => {
+    console.log('Joined room:', data);
+    navigate(`/game/${data.roomId}`);
+  };
+
+  const handleError = (error: { message: string }) => {
+    console.error('Socket error:', error);
+    setError(error.message);
+    setTimeout(() => setError(''), 4000);
+  };
+
+  // IMPORTANT: Check if already connected
+  if (socketService.socket.connected) {
+    setIsConnected(true);
+    socketService.getRooms();
+  }
+
+  socketService.socket.on('connect', handleConnect);
+  socketService.socket.on('disconnect', handleDisconnect);
+  socketService.onRoomsList(handleRoomsList);
+  socketService.onRoomCreated(handleRoomCreated);
+  socketService.onJoinedRoom(handleJoinedRoom);
+  socketService.onError(handleError);
+
+  // Request rooms list every 5 seconds
+  const interval = setInterval(() => {
+    if (socketService.socket.connected) {
       socketService.getRooms();
-    };
+    }
+  }, 5000);
 
-    const handleDisconnect = () => {
-      console.log('Disconnected from server');
-      setIsConnected(false);
-    };
-
-    const handleRoomsList = (roomsList: Room[]) => {
-      console.log('Rooms list received:', roomsList);
-      setRooms(roomsList);
-    };
-
-    const handleRoomCreated = (data: { roomId: string; roomCode: string }) => {
-      console.log('Room created:', data);
-      // Prompt for name before joining
-      setSelectedRoomId(data.roomId);
-      setShowNamePrompt(true);
-    };
-
-    const handleJoinedRoom = (data: { roomId: string }) => {
-      console.log('Joined room:', data);
-      navigate(`/game/${data.roomId}`);
-    };
-
-    const handleError = (error: { message: string }) => {
-      console.error('Socket error:', error);
-      setError(error.message);
-      setTimeout(() => setError(''), 4000);
-    };
-
-    socketService.socket.on('connect', handleConnect);
-    socketService.socket.on('disconnect', handleDisconnect);
-    socketService.onRoomsList(handleRoomsList);
-    socketService.onRoomCreated(handleRoomCreated);
-    socketService.onJoinedRoom(handleJoinedRoom);
-    socketService.onError(handleError);
-
-    // Request rooms list every 5 seconds
-    const interval = setInterval(() => {
-      if (socketService.socket.connected) {
-        socketService.getRooms();
-      }
-    }, 5000);
-
-    // Cleanup
-    return () => {
-      clearInterval(interval);
-      socketService.off('connect', handleConnect);
-      socketService.off('disconnect', handleDisconnect);
-      socketService.off('rooms_list', handleRoomsList);
-      socketService.off('room_created', handleRoomCreated);
-      socketService.off('joined_room', handleJoinedRoom);
-      socketService.off('error', handleError);
-    };
-  }, [navigate]);
+  // Cleanup
+  return () => {
+    clearInterval(interval);
+    socketService.off('connect', handleConnect);
+    socketService.off('disconnect', handleDisconnect);
+    socketService.off('rooms_list', handleRoomsList);
+    socketService.off('room_created', handleRoomCreated);
+    socketService.off('joined_room', handleJoinedRoom);
+    socketService.off('error', handleError);
+  };
+}, [navigate]);
 
   const handleCreateRoom = (roomName: string, maxPlayers: number) => {
     if (!isConnected) {

@@ -1,0 +1,121 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================
+// USER MANAGEMENT
+// ============================================
+
+model User {
+  id        String   @id @default(cuid())
+  username  String   @unique
+  email     String   @unique
+  password  String   // bcrypt hashed
+  avatar    String?  // Profile picture URL
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  // Relations
+  sentFriendRequests     Friendship[] @relation("Requester")
+  receivedFriendRequests Friendship[] @relation("Receiver")
+  gamePlayers            GamePlayer[]
+  sessions               Session[]
+  
+  @@map("users")
+}
+
+// ============================================
+// FRIEND SYSTEM
+// ============================================
+
+model Friendship {
+  id          String           @id @default(cuid())
+  requesterId String
+  receiverId  String
+  status      FriendshipStatus @default(PENDING)
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+  
+  requester User @relation("Requester", fields: [requesterId], references: [id], onDelete: Cascade)
+  receiver  User @relation("Receiver", fields: [receiverId], references: [id], onDelete: Cascade)
+  
+  @@unique([requesterId, receiverId])
+  @@index([requesterId])
+  @@index([receiverId])
+  @@index([status])
+  @@map("friendships")
+}
+
+enum FriendshipStatus {
+  PENDING
+  ACCEPTED
+  REJECTED
+}
+
+// ============================================
+// GAME HISTORY
+// ============================================
+
+model Game {
+  id        String     @id @default(cuid())
+  roomCode  String     @unique
+  status    GameStatus @default(WAITING)
+  winnerId  String?
+  startedAt DateTime?
+  endedAt   DateTime?
+  createdAt DateTime   @default(now())
+  
+  players GamePlayer[]
+  
+  @@index([roomCode])
+  @@index([status])
+  @@map("games")
+}
+
+model GamePlayer {
+  id        String   @id @default(cuid())
+  gameId    String
+  userId    String
+  position  Int      // 0-3 (seat position)
+  finalRank Int?     // 1 = winner, 2 = second, etc.
+  isBot     Boolean  @default(false)
+  createdAt DateTime @default(now())
+  
+  game Game @relation(fields: [gameId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@unique([gameId, userId])
+  @@index([gameId])
+  @@index([userId])
+  @@map("game_players")
+}
+
+enum GameStatus {
+  WAITING
+  IN_PROGRESS
+  COMPLETED
+  ABANDONED
+}
+
+// ============================================
+// SESSION MANAGEMENT
+// ============================================
+
+model Session {
+  id        String   @id @default(cuid())
+  userId    String
+  token     String   @unique
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@index([token])
+  @@index([userId])
+  @@map("sessions")
+}

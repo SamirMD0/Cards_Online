@@ -38,94 +38,98 @@ export function setupRoomHandlers(
    * Create a new room
    */
   socket.on('create_room', (data) => {
-    try {
-      // 1. Validate
-      const validated = validateCreateRoom(data);
+  try {
+    const validated = validateCreateRoom(data);
 
-      // 2. Business logic (service)
-      const metadata = roomService.createRoom(
-        validated.roomName,
-        validated.maxPlayers,
-        socket.id
-      );
-
-      // Generate room ID (we need to store it)
-      const roomId = Array.from(roomService.getAllRooms().entries())
-        .find(([_, meta]) => meta.roomCode === metadata.roomCode)?.[0];
-
-      if (!roomId) {
-        throw new Error('Failed to create room');
-      }
-
-      // 3. Create game state
-      gameManager.createGame(roomId);
-
-      // 4. Socket.IO operations
-      socket.emit('room_created', { 
-        roomId, 
-        roomCode: metadata.roomCode 
-      });
-
-      // 5. Broadcast updated room list
-      broadcastRoomsList(io, roomService, gameManager);
-
-    } catch (error) {
-      emitError(socket, error);
+    // USE AUTHENTICATED USER ID AND USERNAME
+    if (!socket.data.userId) {
+      throw new Error('User not authenticated');
     }
-  });
+
+    const metadata = roomService.createRoom(
+      validated.roomName,
+      validated.maxPlayers,
+      socket.data.userId
+    );
+
+    const roomId = Array.from(roomService.getAllRooms().entries())
+      .find(([_, meta]) => meta.roomCode === metadata.roomCode)?.[0];
+
+    if (!roomId) {
+      throw new Error('Failed to create room');
+    }
+
+    gameManager.createGame(roomId);
+    
+    socket.emit('room_created', { 
+      roomId, 
+      roomCode: metadata.roomCode 
+    });
+
+    broadcastRoomsList(io, roomService, gameManager);
+
+  } catch (error) {
+    emitError(socket, error);
+  }
+});
 
   /**
    * Join an existing room
    */
-  socket.on('join_room', (data) => {
-    try {
-      // 1. Validate
-      const validated = validateJoinRoom(data);
-      const { roomId, playerName } = validated;
+socket.on('join_room', (data) => {
+try {
+  const validated = validateJoinRoom(data);
+  const { roomId } = validated;
+  
+  // USE AUTHENTICATED USERNAME
+  const playerName = socket.data.username;
 
-      // 2. Get game and room
-      const game = gameManager.getGameOrThrow(roomId);
-      const room = roomService.getRoom(roomId);
+  if (!socket.data.userId) {
+    throw new Error('User not authenticated');
+  }
 
-      if (!room) {
-        socket.emit('error', { message: 'Room not found' });
-        return;
-      }
+  if (!playerName) {
+    throw new Error('Player name is required');
+  }
 
-      // 3. Validate can join
-      roomService.canJoinRoom(roomId, game.gameStarted, game.players.length);
+  const userId = socket.data.userId;
+  const game = gameManager.getGameOrThrow(roomId);
+  const room = roomService.getRoom(roomId);
 
-      // 4. Add player to game
-      const added = game.addPlayer(socket.id, playerName);
-      if (!added) {
-        socket.emit('error', { message: 'Failed to join room' });
-        return;
-      }
+  if (!room) {
+    socket.emit('error', { message: 'Room not found' });
+    return;
+  }
 
-      // 5. Socket.IO operations
-      socket.join(roomId);
-      socket.data.roomId = roomId;
-      socket.data.playerName = playerName;
-      gameManager.setPlayerRoom(socket.id, roomId);
-      gameManager.resetGameTimer(roomId);
+  roomService.canJoinRoom(roomId, game.gameStarted, game.players.length);
 
-      // 6. Notify
-      socket.emit('joined_room', { roomId });
-      io.to(roomId).emit('game_state', game.getPublicState());
-      io.to(roomId).emit('player_joined', { 
-        playerId: socket.id, 
-        playerName 
-      });
-
-      // 7. Broadcast updated room list
-      broadcastRoomsList(io, roomService, gameManager);
-
-      console.log(`[RoomHandlers] ${playerName} joined room ${roomId}`);
-
-    } catch (error) {
-      emitError(socket, error);
+  // USE AUTHENTICATED USER ID
+  const added = game.addPlayer(userId, playerName);
+    if (!added) {
+      socket.emit('error', { message: 'Failed to join room' });
+      return;
     }
-  });
+
+    socket.join(roomId);
+    socket.data.roomId = roomId;
+    gameManager.setPlayerRoom(socket.id, roomId);
+    gameManager.resetGameTimer(roomId);
+
+    socket.emit('joined_room', { roomId });
+    io.to(roomId).emit('game_state', game.getPublicState());
+    io.to(roomId).emit('player_joined', { 
+      playerId: socket.data.userId, // Changed from socket.id
+      playerName 
+    });
+
+    broadcastRoomsList(io, roomService, gameManager);
+
+    console.log(`[RoomHandlers] ${playerName} joined room ${roomId}`);
+
+  } catch (error) {
+    emitError(socket, error);
+  }
+});
 
   /**
    * Leave current room

@@ -11,6 +11,10 @@ class SocketService {
       reconnection: true,
       reconnectionAttempts: 5,
       reconnectionDelay: 1000,
+      auth: (cb) => {
+        const token = localStorage.getItem('token');
+        cb({ token });
+      }
     });
 
     this.setupListeners();
@@ -42,6 +46,22 @@ class SocketService {
     }
   }
 
+  // ADD THIS METHOD
+  reconnect() {
+    console.log('[Socket] Reconnecting with new token...');
+    
+    // Disconnect old connection
+    this.socket.disconnect();
+    
+    // Update auth callback with new token
+    this.socket.auth = (cb: any) => {
+      const token = localStorage.getItem('token');
+      cb({ token });
+    };
+    
+    // Reconnect
+    this.socket.connect();
+  }
   // Room Management
   getRooms() {
     this.socket.emit('get_rooms');

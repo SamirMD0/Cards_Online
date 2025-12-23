@@ -1,57 +1,62 @@
-import { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
-import Navigation from '../components/Navigation';
-import GameTable from '../components/GameTable';
-import UnoCard, { CardColor } from '../components/UnoCard';
-import PlayerAvatar from '../components/PlayerAvatar';
-import { socketService } from '../socket';
-import type { GameState, Card } from '../types';
+import { useState, useEffect } from "react";
+import { useParams, useNavigate } from "react-router-dom";
+import Navigation from "../components/Navigation";
+import GameTable from "../components/GameTable";
+import UnoCard, { CardColor } from "../components/UnoCard";
+import PlayerAvatar from "../components/PlayerAvatar";
+import { socketService } from "../socket";
+import type { GameState, Card } from "../types";
 
 export default function Game() {
   const { roomId } = useParams<{ roomId: string }>();
   const navigate = useNavigate();
-  
+
   const [gameState, setGameState] = useState<GameState | null>(null);
   const [playerHand, setPlayerHand] = useState<Card[]>([]);
   const [showColorPicker, setShowColorPicker] = useState(false);
   const [pendingCard, setPendingCard] = useState<Card | null>(null);
   const [showGameOver, setShowGameOver] = useState(false);
-  const [winner, setWinner] = useState<string>('');
-  const [notification, setNotification] = useState('');
+  const [winner, setWinner] = useState<string>("");
+  const [notification, setNotification] = useState("");
+  const [isAddingBot, setIsAddingBot] = useState(false);
 
   useEffect(() => {
     if (!roomId) {
-      navigate('/lobby');
+      navigate("/lobby");
       return;
     }
 
     // Setup game listeners
     const handleGameState = (state: GameState) => {
-      console.log('Game state update:', state);
+      console.log("Game state update:", state);
       setGameState(state);
     };
 
     const handleGameStarted = (state: GameState) => {
-      console.log('Game started:', state);
+      console.log("Game started:", state);
       setGameState(state);
-      showNotification('Game started! 🎮');
+      showNotification("Game started! 🎮");
     };
 
     const handleHandUpdate = (data: { hand: Card[] }) => {
-      console.log('Hand update:', data.hand.length, 'cards');
+      console.log("Hand update:", data.hand.length, "cards");
       setPlayerHand(data.hand);
     };
 
-    const handleCardPlayed = (data: { playerId: string; card: Card; chosenColor: string }) => {
-      console.log('Card played:', data);
-      const player = gameState?.players.find(p => p.id === data.playerId);
+    const handleCardPlayed = (data: {
+      playerId: string;
+      card: Card;
+      chosenColor: string;
+    }) => {
+      console.log("Card played:", data);
+      const player = gameState?.players.find((p) => p.id === data.playerId);
       if (player) {
         showNotification(`${player.name} played ${data.card.value}`);
       }
     };
 
     const handleGameOver = (data: { winner: string; winnerId: string }) => {
-      console.log('Game over:', data);
+      console.log("Game over:", data);
       setWinner(data.winner);
       setShowGameOver(true);
     };
@@ -61,11 +66,19 @@ export default function Game() {
     };
 
     const handlePlayerLeft = (data: { playerId: string }) => {
-      showNotification('A player left the game');
+      showNotification("A player left the game");
     };
 
     const handleError = (error: { message: string }) => {
       showNotification(error.message);
+    };
+
+    const handleAddBot = async () => {
+      setIsAddingBot(true);
+      socketService.addBot();
+
+      // Re-enable after 1 second
+      setTimeout(() => setIsAddingBot(false), 1000);
     };
 
     socketService.onGameState(handleGameState);
@@ -78,20 +91,20 @@ export default function Game() {
     socketService.onError(handleError);
 
     return () => {
-      socketService.off('game_state');
-      socketService.off('game_started');
-      socketService.off('hand_update');
-      socketService.off('card_played');
-      socketService.off('game_over');
-      socketService.off('player_joined');
-      socketService.off('player_left');
-      socketService.off('error');
+      socketService.off("game_state");
+      socketService.off("game_started");
+      socketService.off("hand_update");
+      socketService.off("card_played");
+      socketService.off("game_over");
+      socketService.off("player_joined");
+      socketService.off("player_left");
+      socketService.off("error");
     };
   }, [roomId, navigate, gameState?.players]);
 
   const showNotification = (message: string) => {
     setNotification(message);
-    setTimeout(() => setNotification(''), 3000);
+    setTimeout(() => setNotification(""), 3000);
   };
 
   const handleCardClick = (card: Card) => {
@@ -100,12 +113,15 @@ export default function Game() {
       return;
     }
 
-    if (gameState.pendingDraw > 0 && !['draw2', 'wild_draw4'].includes(card.value as string)) {
+    if (
+      gameState.pendingDraw > 0 &&
+      !["draw2", "wild_draw4"].includes(card.value as string)
+    ) {
       showNotification(`You must draw ${gameState.pendingDraw} cards!`);
       return;
     }
 
-    if (card.color === 'wild') {
+    if (card.color === "wild") {
       setPendingCard(card);
       setShowColorPicker(true);
     } else {
@@ -139,7 +155,7 @@ export default function Game() {
 
   const handleLeaveGame = () => {
     socketService.leaveRoom();
-    navigate('/lobby');
+    navigate("/lobby");
   };
 
   if (!gameState) {
@@ -154,23 +170,30 @@ export default function Game() {
   }
 
   const isMyTurn = gameState.currentPlayer === socketService.socket.id;
-  const currentPlayer = gameState.players.find(p => p.id === gameState.currentPlayer);
-  const myPlayer = gameState.players.find(p => p.id === socketService.socket.id);
-  const otherPlayers = gameState.players.filter(p => p.id !== socketService.socket.id);
+  const currentPlayer = gameState.players.find(
+    (p) => p.id === gameState.currentPlayer
+  );
+  const myPlayer = gameState.players.find(
+    (p) => p.id === socketService.socket.id
+  );
+  const otherPlayers = gameState.players.filter(
+    (p) => p.id !== socketService.socket.id
+  );
 
   // Waiting room (game not started)
   if (!gameState.gameStarted) {
     return (
       <div className="min-h-screen bg-dark-900">
         <Navigation />
-        
+
         <div className="pt-32 px-4 max-w-4xl mx-auto">
           <div className="bg-dark-800 border-2 border-dark-700 rounded-2xl p-12 text-center">
             <h2 className="text-4xl font-poppins font-bold text-white mb-4">
               Waiting Room
             </h2>
             <p className="text-xl text-gray-400 mb-8">
-              Room Code: <span className="text-uno-yellow font-mono">{roomId}</span>
+              Room Code:{" "}
+              <span className="text-uno-yellow font-mono">{roomId}</span>
             </p>
 
             {/* Players */}
@@ -187,18 +210,27 @@ export default function Game() {
                       isReady={true}
                       size="lg"
                     />
-                    <p className="mt-3 text-white font-semibold">{player.name}</p>
-                    {player.isBot && <span className="text-sm text-gray-400">Bot</span>}
+                    <p className="mt-3 text-white font-semibold">
+                      {player.name}
+                    </p>
+                    {player.isBot && (
+                      <span className="text-sm text-gray-400">Bot</span>
+                    )}
                   </div>
                 ))}
-                {Array.from({ length: 4 - gameState.players.length }).map((_, i) => (
-                  <div key={`empty-${i}`} className="flex flex-col items-center">
-                    <div className="w-24 h-24 rounded-full border-4 border-dashed border-dark-600 flex items-center justify-center">
-                      <span className="text-4xl text-dark-600">?</span>
+                {Array.from({ length: 4 - gameState.players.length }).map(
+                  (_, i) => (
+                    <div
+                      key={`empty-${i}`}
+                      className="flex flex-col items-center"
+                    >
+                      <div className="w-24 h-24 rounded-full border-4 border-dashed border-dark-600 flex items-center justify-center">
+                        <span className="text-4xl text-dark-600">?</span>
+                      </div>
+                      <p className="mt-3 text-gray-500">Waiting...</p>
                     </div>
-                    <p className="mt-3 text-gray-500">Waiting...</p>
-                  </div>
-                ))}
+                  )
+                )}
               </div>
             </div>
 
@@ -206,10 +238,10 @@ export default function Game() {
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
               <button
                 onClick={handleAddBot}
-                disabled={gameState.players.length >= 4}
+                disabled={gameState.players.length >= 4 || isAddingBot}
                 className="px-8 py-4 bg-dark-700 hover:bg-dark-600 text-white font-semibold rounded-xl transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                ➕ Add Bot
+                {isAddingBot ? "⏳ Adding..." : "➕ Add Bot"}
               </button>
               <button
                 onClick={handleStartGame}
@@ -250,24 +282,33 @@ export default function Game() {
             <div>
               <h3 className="text-2xl font-poppins font-bold text-white mb-1">
                 {isMyTurn ? (
-                  <span className="text-uno-yellow animate-pulse">🎯 YOUR TURN!</span>
+                  <span className="text-uno-yellow animate-pulse">
+                    🎯 YOUR TURN!
+                  </span>
                 ) : (
                   <span>{currentPlayer?.name}'s Turn</span>
                 )}
               </h3>
               <p className="text-gray-400">
-                Direction: {gameState.direction === 1 ? '→ Clockwise' : '← Counter-clockwise'}
+                Direction:{" "}
+                {gameState.direction === 1
+                  ? "→ Clockwise"
+                  : "← Counter-clockwise"}
               </p>
             </div>
             <div className="flex items-center gap-6">
               <div className="text-center">
                 <p className="text-sm text-gray-400">Deck</p>
-                <p className="text-2xl font-bold text-white">{gameState.deckCount} 🎴</p>
+                <p className="text-2xl font-bold text-white">
+                  {gameState.deckCount} 🎴
+                </p>
               </div>
               {gameState.pendingDraw > 0 && (
                 <div className="text-center">
                   <p className="text-sm text-gray-400">Must Draw</p>
-                  <p className="text-2xl font-bold text-uno-yellow">+{gameState.pendingDraw}</p>
+                  <p className="text-2xl font-bold text-uno-yellow">
+                    +{gameState.pendingDraw}
+                  </p>
                 </div>
               )}
             </div>
@@ -282,8 +323,8 @@ export default function Game() {
                 key={player.id}
                 className={`bg-dark-800 border-2 rounded-xl p-4 flex items-center gap-4 ${
                   player.id === gameState.currentPlayer
-                    ? 'border-uno-yellow'
-                    : 'border-dark-700'
+                    ? "border-uno-yellow"
+                    : "border-dark-700"
                 }`}
               >
                 <PlayerAvatar
@@ -294,7 +335,7 @@ export default function Game() {
                 />
                 <div className="flex-1">
                   <p className="font-semibold text-white">
-                    {player.name} {player.isBot && '🤖'}
+                    {player.name} {player.isBot && "🤖"}
                   </p>
                   <p className="text-gray-400">{player.handCount} cards</p>
                 </div>
@@ -316,7 +357,9 @@ export default function Game() {
                   className="w-32 h-48 bg-gradient-to-br from-dark-800 to-dark-900 border-4 border-white rounded-2xl flex flex-col items-center justify-center text-6xl hover:scale-105 transition-transform disabled:opacity-50 disabled:cursor-not-allowed shadow-card"
                 >
                   🎴
-                  <span className="text-sm text-gray-400 mt-2">{gameState.deckCount}</span>
+                  <span className="text-sm text-gray-400 mt-2">
+                    {gameState.deckCount}
+                  </span>
                 </button>
               </div>
 
@@ -326,7 +369,9 @@ export default function Game() {
                   <p className="text-white font-semibold">Current Color:</p>
                   <div
                     className="w-6 h-6 rounded-full border-2 border-white"
-                    style={{ backgroundColor: gameState.currentColor || 'white' }}
+                    style={{
+                      backgroundColor: gameState.currentColor || "white",
+                    }}
                   />
                 </div>
                 {gameState.topCard && (
@@ -384,7 +429,7 @@ export default function Game() {
               Choose a Color
             </h3>
             <div className="flex gap-6">
-              {['red', 'blue', 'green', 'yellow'].map((color) => (
+              {["red", "blue", "green", "yellow"].map((color) => (
                 <button
                   key={color}
                   onClick={() => handleColorSelect(color)}

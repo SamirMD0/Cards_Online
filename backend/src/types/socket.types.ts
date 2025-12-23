@@ -4,7 +4,11 @@ import { Socket as IOSocket } from 'socket.io';
 export interface SocketData {
   roomId?: string;
   playerName?: string;
-  userId?: string; // For future auth
+  
+  // ADD THESE AUTHENTICATED USER PROPERTIES
+  userId?: string;
+  username?: string;
+  email?: string;
 }
 
 export type Socket = IOSocket<
