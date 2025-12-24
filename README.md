@@ -6,6 +6,21 @@ A full-stack, real-time multiplayer UNO card game built with modern web technolo
 ![Node](https://img.shields.io/badge/node-%3E%3D18.0.0-brightgreen)
 ![React](https://img.shields.io/badge/react-18.2.0-blue)
 
+## 📊 Development Status
+
+**Current Phase:** Phase 2 Complete ✅  
+**Next Phase:** Phase 3 - Game Layout Redesign
+
+- ✅ Phase 1: Core game mechanics (multiplayer, bots, all cards)
+- ✅ Phase 2: Authentication + database + friend system  
+- 🔜 Phase 3: Circular table layout redesign
+- 🔜 Phase 4: Production deployment
+- 🔜 Phase 5: Polish & features
+- 🔜 Phase 6: Portfolio presentation
+
+**See [PROGRESS.md](PROGRESS.md) for detailed development log.**
+
+
 ## 🚀 Live Demo
 
 - **Frontend**: [Deployed on Vercel](#) _(Add your link)_

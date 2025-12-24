@@ -1,18 +1,19 @@
 import { useState } from 'react';
-import styled from 'styled-components';
+import styled, { css } from 'styled-components';
 
 export type CardColor = 'red' | 'blue' | 'green' | 'yellow' | 'wild';
 export type CardValue = string | number;
+export type CardSize = 'xs' | 'sm' | 'md' | 'lg';
 
-interface UnoCardProps {
+export interface UnoCardProps {
   color: CardColor;
   value: CardValue;
-  faceUp?: boolean; // NEW
+  faceUp?: boolean;
   onClick?: () => void;
   disabled?: boolean;
   className?: string;
+  size?: CardSize; // Added proper typing
 }
-
 
 const colorMap: Record<CardColor, string> = {
   red: '#cb0323',
@@ -22,13 +23,22 @@ const colorMap: Record<CardColor, string> = {
   wild: '#111',
 };
 
+// Size configuration
+const sizeMap = {
+  xs: { width: '30px', height: '46px', fontSize: '0.5rem', centerSize: '1rem', radius: '4px' },
+  sm: { width: '60px', height: '90px', fontSize: '0.75rem', centerSize: '1.5rem', radius: '6px' },
+  md: { width: '100px', height: '150px', fontSize: '1rem', centerSize: '2.5rem', radius: '10px' },
+  lg: { width: '140px', height: '220px', fontSize: '1.25rem', centerSize: '3.5rem', radius: '16px' },
+};
+
 export default function UnoCard({
   color,
   value,
-  faceUp = true, // default: player sees their cards
+  faceUp = true,
   onClick,
   disabled = false,
   className = '',
+  size = 'md', // Default to medium
 }: UnoCardProps) {
   const [hovered, setHovered] = useState(false);
 
@@ -40,7 +50,8 @@ export default function UnoCard({
       onMouseLeave={() => setHovered(false)}
       $hovered={hovered}
       $disabled={disabled}
-      $faceUp={faceUp} 
+      $faceUp={faceUp}
+      $size={size}
     >
       <div className="card">
         {/* BACK */}
@@ -65,46 +76,51 @@ const Wrapper = styled.div<{
   $hovered: boolean;
   $disabled: boolean;
   $faceUp: boolean;
+  $size: CardSize;
 }>`
   perspective: 900px;
   cursor: ${({ $disabled }) => ($disabled ? 'not-allowed' : 'pointer')};
-  opacity: ${({ $disabled }) => ($disabled ? 0.5 : 1)};
+  opacity: ${({ $disabled }) => ($disabled ? 0.8 : 1)};
   pointer-events: ${({ $disabled }) => ($disabled ? 'none' : 'auto')};
+  
+  /* Use size map for dimensions */
+  width: ${({ $size }) => sizeMap[$size].width};
+  height: ${({ $size }) => sizeMap[$size].height};
 
- .card {
-  width: 140px;
-  height: 220px;
-  position: relative;
-  border-radius: 16px;
-  transform-style: preserve-3d;
-  transition: transform 0.6s ease, box-shadow 0.3s ease;
+  .card {
+    width: 100%;
+    height: 100%;
+    position: relative;
+    border-radius: ${({ $size }) => sizeMap[$size].radius};
+    transform-style: preserve-3d;
+    transition: transform 0.4s ease, box-shadow 0.3s ease;
 
-  transform: ${({ $faceUp, $hovered }) => `
-    rotateY(${$faceUp ? '180deg' : '0deg'})
-    translateY(${$hovered ? '-12px' : '0'})
-  `};
+    transform: ${({ $faceUp, $hovered }) => `
+      rotateY(${$faceUp ? '180deg' : '0deg'})
+      translateY(${$hovered ? '-10%' : '0'})
+    `};
 
-  box-shadow: ${({ $hovered }) =>
-    $hovered
-      ? '0 30px 50px rgba(0,0,0,0.6)'
-      : '0 10px 20px rgba(0,0,0,0.4)'};
-}
-
+    box-shadow: ${({ $hovered }) =>
+      $hovered
+        ? '0 15px 30px rgba(0,0,0,0.5)'
+        : '0 5px 10px rgba(0,0,0,0.3)'};
+  }
 
   .back,
   .front {
     position: absolute;
-    inset: 10px;
-    border-radius: 14px;
+    inset: 0;
+    border-radius: ${({ $size }) => sizeMap[$size].radius};
     backface-visibility: hidden;
     display: flex;
     align-items: center;
     justify-content: center;
     overflow: hidden;
+    border: 2px solid white; /* Adds the classic white border */
   }
 
   .back {
-    background: #141414;
+    background: #111;
   }
 
   .front {
@@ -123,38 +139,34 @@ const Wrapper = styled.div<{
     background: rgba(255, 255, 255, 0.15);
   }
 
-  .oval.border {
-    border: 6px solid white;
-    background: transparent;
-  }
-
   .uno-text {
-    font-size: 3rem;
+    font-size: ${({ $size }) => sizeMap[$size].centerSize};
     font-weight: 900;
     color: #f2c400;
     transform: rotate(-15deg);
+    text-shadow: 2px 2px 0 #000;
   }
 
   .text {
     position: absolute;
     font-weight: 900;
-    text-shadow: -2px -2px 0 #000, 2px 2px 0 #000;
+    text-shadow: -1px -1px 0 #000, 1px 1px 0 #000;
   }
 
   .text.top {
-    top: 12px;
-    left: 14px;
-    font-size: 1.25rem;
+    top: 8%;
+    left: 10%;
+    font-size: ${({ $size }) => sizeMap[$size].fontSize};
   }
 
   .text.center {
-    font-size: 3.5rem;
+    font-size: ${({ $size }) => sizeMap[$size].centerSize};
   }
 
   .text.bottom {
-    bottom: 12px;
-    right: 14px;
-    font-size: 1.25rem;
+    bottom: 8%;
+    right: 10%;
+    font-size: ${({ $size }) => sizeMap[$size].fontSize};
     transform: rotate(180deg);
   }
 `;

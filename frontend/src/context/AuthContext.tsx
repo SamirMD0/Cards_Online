@@ -1,5 +1,6 @@
+// frontend/src/context/AuthContext.tsx - Export userId
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { socketService } from '../socket'; // ADD THIS IMPORT
+import { socketService } from '../socket';
 
 interface User {
   id: string;
@@ -63,7 +64,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(data.user);
     localStorage.setItem('token', data.token);
     
-    // RECONNECT SOCKET WITH NEW TOKEN
     socketService.reconnect();
   }
 
@@ -84,7 +84,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(data.user);
     localStorage.setItem('token', data.token);
     
-    // RECONNECT SOCKET WITH NEW TOKEN
     socketService.reconnect();
   }
 
@@ -100,8 +99,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     setUser(null);
     localStorage.removeItem('token');
-    
-    // DISCONNECT SOCKET
     socketService.disconnect();
   }
 
@@ -118,4 +115,10 @@ export function useAuth() {
     throw new Error('useAuth must be used within AuthProvider');
   }
   return context;
+}
+
+// ✅ NEW: Export helper to get current userId
+export function getCurrentUserId(): string | null {
+  const context = useContext(AuthContext);
+  return context?.user?.id || null;
 }

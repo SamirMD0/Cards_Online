@@ -1,6 +1,14 @@
 // Card Types
 export type CardColor = 'red' | 'blue' | 'green' | 'yellow' | 'wild';
 export type CardValue = string | number;
+export { default as GameDebugPanel } from '../components/game/GameDebugPanel';
+export { default as GameHeader } from '../components/game/GameHeader';
+export { default as GameTable } from '../components/game/GameTable';
+export { default as PlayerHand } from '../components/game/PlayerHand';
+export { default as OpponentHand } from '../components/game/OpponentHand';
+export { default as ColorPickerModal } from '../components/game/ColorPickerModal';
+export { default as GameOverModal } from '../components/game/GameOverModal';
+export { default as WaitingRoom } from '../components/game/WaitingRoom';
 
 export interface Card {
   id: string;

@@ -30,79 +30,83 @@ export default function Lobby() {
   const [isConnected, setIsConnected] = useState(false);
   const [error, setError] = useState('');
 
- useEffect(() => {
-  // Connect to socket
-  socketService.connect();
-
-  // Setup listeners
-  const handleConnect = () => {
-    console.log('Connected to server');
-    setIsConnected(true);
-    socketService.getRooms(); // Request rooms after connection
-  };
-
-  const handleDisconnect = () => {
-    console.log('Disconnected from server');
-    setIsConnected(false);
-  };
-
-  const handleRoomsList = (roomsList: Room[]) => {
-    console.log('Rooms list received:', roomsList);
-    setRooms(roomsList);
-  };
-
-  const handleRoomCreated = (data: { roomId: string; roomCode: string }) => {
-    console.log('Room created:', data);
-    setSelectedRoomId(data.roomId);
-    setShowNamePrompt(true);
-  };
-
-  const handleJoinedRoom = (data: { roomId: string }) => {
-    console.log('Joined room:', data);
-    navigate(`/game/${data.roomId}`);
-  };
-
-  const handleError = (error: { message: string }) => {
-    console.error('Socket error:', error);
-    setError(error.message);
-    setTimeout(() => setError(''), 4000);
-  };
-
-  // IMPORTANT: Check if already connected
-  if (socketService.socket.connected) {
-    setIsConnected(true);
-    socketService.getRooms();
-  }
-
-  socketService.socket.on('connect', handleConnect);
-  socketService.socket.on('disconnect', handleDisconnect);
-  socketService.onRoomsList(handleRoomsList);
-  socketService.onRoomCreated(handleRoomCreated);
-  socketService.onJoinedRoom(handleJoinedRoom);
-  socketService.onError(handleError);
-
-  // Request rooms list every 5 seconds
-  const interval = setInterval(() => {
-    if (socketService.socket.connected) {
-      socketService.getRooms();
+  useEffect(() => {
+    // 1. Connection Management
+    if (!socketService.socket.connected) {
+      socketService.connect();
     }
-  }, 5000);
 
-  // Cleanup
-  return () => {
-    clearInterval(interval);
-    socketService.off('connect', handleConnect);
-    socketService.off('disconnect', handleDisconnect);
-    socketService.off('rooms_list', handleRoomsList);
-    socketService.off('room_created', handleRoomCreated);
-    socketService.off('joined_room', handleJoinedRoom);
-    socketService.off('error', handleError);
-  };
-}, [navigate]);
+    // 2. Define Handlers
+    const handleConnect = () => {
+      console.log('[Lobby] Connected to server');
+      setIsConnected(true);
+      socketService.getRooms(); 
+    };
+
+    const handleDisconnect = () => {
+      console.log('[Lobby] Disconnected from server');
+      setIsConnected(false);
+    };
+
+    const handleRoomsList = (roomsList: Room[]) => {
+      console.log('[Lobby] Rooms list received:', roomsList.length, 'rooms');
+      setRooms(roomsList);
+    };
+
+    const handleRoomCreated = (data: { roomId: string; roomCode: string }) => {
+      console.log('[Lobby] Room created:', data);
+      setSelectedRoomId(data.roomId);
+      setShowNamePrompt(true);
+    };
+
+    const handleJoinedRoom = (data: { roomId: string }) => {
+      console.log('[Lobby] Joined room:', data.roomId);
+      navigate(`/game/${data.roomId}`);
+    };
+
+    const handleError = (error: { message: string }) => {
+      console.error('[Lobby] Socket error:', error);
+      setError(error.message);
+      setTimeout(() => setError(''), 4000);
+    };
+
+    // 3. Attach Listeners
+    socketService.socket.on('connect', handleConnect);
+    socketService.socket.on('disconnect', handleDisconnect);
+    
+    socketService.onRoomsList(handleRoomsList);
+    socketService.onRoomCreated(handleRoomCreated);
+    socketService.onJoinedRoom(handleJoinedRoom);
+    socketService.onError(handleError);
+
+    // 4. Manually trigger if already connected
+    if (socketService.socket.connected) {
+      handleConnect();
+    }
+
+    // 5. Polling for room updates
+    const interval = setInterval(() => {
+      if (socketService.socket.connected) {
+        socketService.getRooms();
+      }
+    }, 5000);
+
+    // 6. Cleanup
+    return () => {
+      clearInterval(interval);
+      socketService.socket.off('connect', handleConnect);
+      socketService.socket.off('disconnect', handleDisconnect);
+      socketService.off('rooms_list'); 
+      socketService.off('room_created');
+      socketService.off('joined_room');
+      socketService.off('error');
+    };
+  }, [navigate]);
 
   const handleCreateRoom = (roomName: string, maxPlayers: number) => {
     if (!isConnected) {
       setError('Not connected to server');
+      setTimeout(() => setError(''), 4000);
       return;
     }
     socketService.createRoom(roomName, maxPlayers);
@@ -111,6 +115,7 @@ export default function Lobby() {
   const handleJoinRoom = (roomId: string) => {
     if (!isConnected) {
       setError('Not connected to server');
+      setTimeout(() => setError(''), 4000);
       return;
     }
     setSelectedRoomId(roomId);

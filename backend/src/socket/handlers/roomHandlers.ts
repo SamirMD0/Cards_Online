@@ -7,12 +7,6 @@ import { emitError } from '../../utils/errors.js';
 
 /**
  * Room Handlers: THIN layer between Socket.IO and business logic
- * Responsibilities:
- * 1. Validate input
- * 2. Call services
- * 3. Handle Socket.IO events
- * 
- * NO business logic here!
  */
 
 export function setupRoomHandlers(
@@ -38,98 +32,94 @@ export function setupRoomHandlers(
    * Create a new room
    */
   socket.on('create_room', (data) => {
-  try {
-    const validated = validateCreateRoom(data);
+    try {
+      const validated = validateCreateRoom(data);
 
-    // USE AUTHENTICATED USER ID AND USERNAME
-    if (!socket.data.userId) {
-      throw new Error('User not authenticated');
+      // Use authenticated user ID and username
+      if (!socket.data.userId) {
+        throw new Error('User not authenticated');
+      }
+
+      const metadata = roomService.createRoom(
+        validated.roomName,
+        validated.maxPlayers,
+        socket.data.userId
+      );
+
+      const roomId = Array.from(roomService.getAllRooms().entries())
+        .find(([_, meta]) => meta.roomCode === metadata.roomCode)?.[0];
+
+      if (!roomId) {
+        throw new Error('Failed to create room');
+      }
+
+      gameManager.createGame(roomId);
+      
+      socket.emit('room_created', { 
+        roomId, 
+        roomCode: metadata.roomCode 
+      });
+
+      broadcastRoomsList(io, roomService, gameManager);
+
+      console.log(`[RoomHandlers] ${socket.data.username} created room ${roomId} (${metadata.roomCode})`);
+
+    } catch (error) {
+      emitError(socket, error);
     }
-
-    const metadata = roomService.createRoom(
-      validated.roomName,
-      validated.maxPlayers,
-      socket.data.userId
-    );
-
-    const roomId = Array.from(roomService.getAllRooms().entries())
-      .find(([_, meta]) => meta.roomCode === metadata.roomCode)?.[0];
-
-    if (!roomId) {
-      throw new Error('Failed to create room');
-    }
-
-    gameManager.createGame(roomId);
-    
-    socket.emit('room_created', { 
-      roomId, 
-      roomCode: metadata.roomCode 
-    });
-
-    broadcastRoomsList(io, roomService, gameManager);
-
-  } catch (error) {
-    emitError(socket, error);
-  }
-});
+  });
 
   /**
    * Join an existing room
    */
-socket.on('join_room', (data) => {
-try {
-  const validated = validateJoinRoom(data);
-  const { roomId } = validated;
-  
-  // USE AUTHENTICATED USERNAME
-  const playerName = socket.data.username;
+  socket.on('join_room', (data) => {
+    try {
+      const validated = validateJoinRoom(data);
+      const { roomId, playerName } = validated;
 
-  if (!socket.data.userId) {
-    throw new Error('User not authenticated');
-  }
+      if (!socket.data.userId) {
+        throw new Error('User not authenticated');
+      }
 
-  if (!playerName) {
-    throw new Error('Player name is required');
-  }
+      const userId = socket.data.userId;
+      const game = gameManager.getGameOrThrow(roomId);
+      const room = roomService.getRoom(roomId);
 
-  const userId = socket.data.userId;
-  const game = gameManager.getGameOrThrow(roomId);
-  const room = roomService.getRoom(roomId);
+      if (!room) {
+        socket.emit('error', { message: 'Room not found' });
+        return;
+      }
 
-  if (!room) {
-    socket.emit('error', { message: 'Room not found' });
-    return;
-  }
+      roomService.canJoinRoom(roomId, game.gameStarted, game.players.length);
 
-  roomService.canJoinRoom(roomId, game.gameStarted, game.players.length);
+      // Add player using userId (this is stored in game state)
+      const added = game.addPlayer(userId, playerName);
+      if (!added) {
+        socket.emit('error', { message: 'Failed to join room' });
+        return;
+      }
 
-  // USE AUTHENTICATED USER ID
-  const added = game.addPlayer(userId, playerName);
-    if (!added) {
-      socket.emit('error', { message: 'Failed to join room' });
-      return;
+      // ✅ IMPORTANT: Track socket.id -> roomId mapping for socket events
+      socket.join(roomId);
+      socket.data.roomId = roomId;
+      gameManager.setPlayerRoom(socket.id, roomId); // Maps socket.id -> roomId
+      gameManager.resetGameTimer(roomId);
+
+      socket.emit('joined_room', { roomId });
+      io.to(roomId).emit('game_state', game.getPublicState());
+      io.to(roomId).emit('player_joined', { 
+        playerId: userId,
+        playerName 
+      });
+
+      broadcastRoomsList(io, roomService, gameManager);
+
+      console.log(`[RoomHandlers] ${playerName} (userId: ${userId}, socketId: ${socket.id}) joined room ${roomId}`);
+
+    } catch (error) {
+      emitError(socket, error);
     }
-
-    socket.join(roomId);
-    socket.data.roomId = roomId;
-    gameManager.setPlayerRoom(socket.id, roomId);
-    gameManager.resetGameTimer(roomId);
-
-    socket.emit('joined_room', { roomId });
-    io.to(roomId).emit('game_state', game.getPublicState());
-    io.to(roomId).emit('player_joined', { 
-      playerId: socket.data.userId, // Changed from socket.id
-      playerName 
-    });
-
-    broadcastRoomsList(io, roomService, gameManager);
-
-    console.log(`[RoomHandlers] ${playerName} joined room ${roomId}`);
-
-  } catch (error) {
-    emitError(socket, error);
-  }
-});
+  });
 
   /**
    * Leave current room
@@ -193,20 +183,25 @@ export function handlePlayerLeave(
   const game = gameManager.getGame(roomId);
   if (!game) return;
 
-  // Remove player from game
-  game.removePlayer(socket.id);
+  // ✅ FIX: Remove player by userId, not socket.id
+  const userId = socket.data.userId;
+  if (userId) {
+    game.removePlayer(userId);
+    console.log(`[RoomHandlers] Player ${userId} (socket: ${socket.id}) left room ${roomId}`);
+  }
 
   // If room is empty, delete everything
   if (game.players.length === 0) {
     gameManager.deleteGame(roomId);
     roomService.deleteRoom(roomId);
+    console.log(`[RoomHandlers] Room ${roomId} deleted (empty)`);
   } else {
     // Notify remaining players
-    io.to(roomId).emit('player_left', { playerId: socket.id });
+    io.to(roomId).emit('player_left', { playerId: userId });
     io.to(roomId).emit('game_state', game.getPublicState());
   }
 
-  // Cleanup
+  // Cleanup socket mappings
   socket.leave(roomId);
   gameManager.removePlayerMapping(socket.id);
 

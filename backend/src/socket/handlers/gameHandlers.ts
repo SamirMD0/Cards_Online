@@ -29,8 +29,8 @@ export function setupGameHandlers(
       
       const game = gameManager.getGameOrThrow(roomId);
       
-      // Validate host
-      if (game.players.length > 0 && game.players[0].id !== socket.id) {
+      // Validate host (use userId for comparison since that's what's stored)
+      if (game.players.length > 0 && game.players[0].id !== socket.data.userId) {
         throw new Error('Only the host can start the game');
       }
       
@@ -50,9 +50,19 @@ export function setupGameHandlers(
       // Broadcast game state to all players
       io.to(roomId).emit('game_started', game.getPublicState());
       
-      // Send each player their hand privately
+      // ✅ FIX: Send each player their hand using their SOCKET ID, not userId
+      // We need to find the socket for each player
+      const socketsInRoom = Array.from(io.sockets.sockets.values()).filter(s => 
+        gameManager.getPlayerRoom(s.id) === roomId
+      );
+      
       game.players.forEach(player => {
-        io.to(player.id).emit('hand_update', { hand: player.hand });
+        // Find the socket that belongs to this userId
+        const playerSocket = socketsInRoom.find(s => s.data.userId === player.id);
+        if (playerSocket && !player.isBot) {
+          console.log(`[Game] Sending hand to ${player.name} (${player.hand.length} cards)`);
+          playerSocket.emit('hand_update', { hand: player.hand });
+        }
       });
       
       // Reset inactivity timer
@@ -71,117 +81,132 @@ export function setupGameHandlers(
   });
 
   /**
-   * PLAY CARD
-   * Player attempts to play a card from their hand
-   */
-  socket.on('play_card', (data) => {
-    try {
-      const validated = validatePlayCard(data);
-      const roomId = gameManager.getPlayerRoom(socket.id);
-      
-      if (!roomId) {
-        throw new Error('You are not in a room');
+ * PLAY CARD
+ * Player attempts to play a card from their hand
+ */
+
+ socket.on('play_card', (data) => {
+
+  const roomId = gameManager.getPlayerRoom(socket.id);
+  const game = gameManager.getGameOrThrow(roomId);
+  const userId = socket.data.userId;
+
+  console.log(`[PlayCard Attempt] Current Turn: ${game.currentPlayer}, Acting User: ${userId}`);
+
+  if (game.currentPlayer !== userId) {
+    return emitError(socket, `It is not your turn! Current player is ${game.currentPlayer}`);
+  }
+  
+  try {
+    const validated = validatePlayCard(data);
+    const roomId = gameManager.getPlayerRoom(socket.id);
+    
+    if (!roomId) {
+      throw new Error('You are not in a room');
+    }
+    
+    const game = gameManager.getGameOrThrow(roomId);
+    
+    // Compare with userId, not socket.id
+    const userId = socket.data.userId;
+    if (game.currentPlayer !== userId) {
+      throw new Error('It is not your turn');
+    }
+    
+    // Find player by userId
+    const player = game.players.find(p => p.id === userId);
+    if (!player) {
+      throw new Error('Player not found in game');
+    }
+    
+    const cardIndex = player.hand.findIndex(c => c.id === validated.cardId);
+    if (cardIndex === -1) {
+      throw new Error('Card not found in your hand');
+    }
+    
+    const card = player.hand[cardIndex];
+    const topCard = game.discardPile[game.discardPile.length - 1];
+    
+    // Validate the card can be played
+    if (!canPlayCard(card, topCard, game.currentColor)) {
+      throw new Error('This card cannot be played on the current card');
+    }
+    
+    // Special case: If there's a pending draw, only draw cards can be played
+    if (game.pendingDraw > 0) {
+      const isDrawCard = card.value === 'draw2' || card.value === 'wild_draw4';
+      if (!isDrawCard) {
+        throw new Error(`You must draw ${game.pendingDraw} cards or play a Draw 2/Draw 4`);
       }
+    }
+    
+    // Wild cards require a color choice
+    if (card.color === 'wild' && !validated.chosenColor) {
+      throw new Error('You must choose a color for wild cards');
+    }
+    
+    // Execute the play
+    player.hand.splice(cardIndex, 1);
+    game.discardPile.push(card);
+    
+    // Set the current color
+    if (card.color === 'wild') {
+      game.currentColor = validated.chosenColor as any;
+    } else {
+      game.currentColor = card.color;
+    }
+    
+    console.log(`[Game] ${player.name} played ${card.color} ${card.value}, hand now has ${player.hand.length} cards`);
+    
+    // ✅ CRITICAL FIX: Send updated hand to player IMMEDIATELY after playing
+    console.log(`[Game] Sending updated hand to ${player.name} (${player.hand.length} cards)`);
+    socket.emit('hand_update', { hand: player.hand });
+    
+    // Broadcast card played
+    io.to(roomId).emit('card_played', {
+      playerId: userId,
+      card,
+      chosenColor: game.currentColor
+    });
+    
+    // Check for winner
+    if (checkWinner(player)) {
+      game.winner = userId;
+      console.log(`[Game] ${player.name} wins!`);
       
-      const game = gameManager.getGameOrThrow(roomId);
-      
-      // Validate it's player's turn
-      if (game.currentPlayer !== socket.id) {
-        throw new Error('It is not your turn');
-      }
-      
-      // Find player and card
-      const player = game.players.find(p => p.id === socket.id);
-      if (!player) {
-        throw new Error('Player not found in game');
-      }
-      
-      const cardIndex = player.hand.findIndex(c => c.id === validated.cardId);
-      if (cardIndex === -1) {
-        throw new Error('Card not found in your hand');
-      }
-      
-      const card = player.hand[cardIndex];
-      const topCard = game.discardPile[game.discardPile.length - 1];
-      
-      // Validate the card can be played
-      if (!canPlayCard(card, topCard, game.currentColor)) {
-        throw new Error('This card cannot be played on the current card');
-      }
-      
-      // Special case: If there's a pending draw, only draw cards can be played
-      if (game.pendingDraw > 0) {
-        const isDrawCard = card.value === 'draw2' || card.value === 'wild_draw4';
-        if (!isDrawCard) {
-          throw new Error(`You must draw ${game.pendingDraw} cards or play a Draw 2/Draw 4`);
-        }
-      }
-      
-      // Wild cards require a color choice
-      if (card.color === 'wild' && !validated.chosenColor) {
-        throw new Error('You must choose a color for wild cards');
-      }
-      
-      // Execute the play
-      player.hand.splice(cardIndex, 1);
-      game.discardPile.push(card);
-      
-      // Set the current color
-      if (card.color === 'wild') {
-        game.currentColor = validated.chosenColor as any;
-      } else {
-        game.currentColor = card.color;
-      }
-      
-      console.log(`[Game] ${player.name} played ${card.color} ${card.value}`);
-      
-      // Broadcast card played
-      io.to(roomId).emit('card_played', {
-        playerId: socket.id,
-        card,
-        chosenColor: game.currentColor
+      io.to(roomId).emit('game_over', {
+        winner: player.name,
+        winnerId: userId
       });
       
-      // Check for winner
-      if (checkWinner(player)) {
-        game.winner = socket.id;
-        console.log(`[Game] ${player.name} wins!`);
-        
-        io.to(roomId).emit('game_over', {
-          winner: player.name,
-          winnerId: socket.id
-        });
-        
-        return;
-      }
-      
-      // Apply card effects (skip, reverse, draw2, draw4)
-      applyCardEffect(card, game);
-      
-      // Move to next player if not already moved by effect
-      if (!['skip', 'reverse'].includes(card.value as string)) {
-        game.currentPlayer = getNextPlayer(game);
-      }
-      
-      // Broadcast updated game state
-      io.to(roomId).emit('game_state', game.getPublicState());
-      io.to(socket.id).emit('hand_update', { hand: player.hand });
-      
-      // Reset timer
-      gameManager.resetGameTimer(roomId);
-      
-      // Trigger bot turn if next player is bot
-      const nextPlayer = game.players.find(p => p.id === game.currentPlayer);
-      if (nextPlayer?.isBot) {
-        setTimeout(() => processBotTurn(io, game, roomId, gameManager), 1500);
-      }
-      
-    } catch (error) {
-      console.error('[Game] Play card error:', error);
-      emitError(socket, error);
+      return;
     }
-  });
-
+    
+    // Apply card effects (skip, reverse, draw2, draw4)
+    applyCardEffect(card, game);
+    
+    // Move to next player if not already moved by effect
+    if (!['skip', 'reverse'].includes(card.value as string)) {
+      game.currentPlayer = getNextPlayer(game);
+    }
+    
+    // Broadcast updated game state
+    io.to(roomId).emit('game_state', game.getPublicState());
+    
+    // Reset timer
+    gameManager.resetGameTimer(roomId);
+    
+    // Trigger bot turn if next player is bot
+    const nextPlayer = game.players.find(p => p.id === game.currentPlayer);
+    if (nextPlayer?.isBot) {
+      setTimeout(() => processBotTurn(io, game, roomId, gameManager), 1500);
+    }
+    
+  } catch (error) {
+    console.error('[Game] Play card error:', error);
+    emitError(socket, error);
+  }
+});
   /**
    * DRAW CARD
    * Player draws cards (either 1 normal draw or pending draw amount)
@@ -195,12 +220,13 @@ export function setupGameHandlers(
       
       const game = gameManager.getGameOrThrow(roomId);
       
-      // Validate turn
-      if (game.currentPlayer !== socket.id) {
+      // ✅ FIX: Compare with userId
+      const userId = socket.data.userId;
+      if (game.currentPlayer !== userId) {
         throw new Error('It is not your turn');
       }
       
-      const player = game.players.find(p => p.id === socket.id);
+      const player = game.players.find(p => p.id === userId);
       if (!player) {
         throw new Error('Player not found');
       }
@@ -213,7 +239,7 @@ export function setupGameHandlers(
       // Draw the cards
       const drawnCards: Card[] = [];
       for (let i = 0; i < drawCount; i++) {
-        const drawn = game.drawCard(socket.id);
+        const drawn = game.drawCard(userId);
         if (drawn.length > 0) {
           drawnCards.push(drawn[0]);
         }
@@ -224,12 +250,12 @@ export function setupGameHandlers(
       
       // Broadcast draw event (without showing cards to others)
       io.to(roomId).emit('cards_drawn', {
-        playerId: socket.id,
+        playerId: userId,
         count: drawnCards.length
       });
       
-      // Send updated hand to player
-      io.to(socket.id).emit('hand_update', { hand: player.hand });
+      // ✅ FIX: Send updated hand to player using socket
+      socket.emit('hand_update', { hand: player.hand });
       
       // Move to next player
       game.currentPlayer = getNextPlayer(game);
@@ -300,10 +326,31 @@ export function setupGameHandlers(
       emitError(socket, error);
     }
   });
+
+  /**
+ * REQUEST HAND - Manual hand request for debugging
+ */
+/**
+ * REQUEST HAND - Manual hand request for debugging
+ */
+socket.on('request_hand', () => {
+  const roomId = gameManager.getPlayerRoom(socket.id);
+  if (!roomId) return;
+  
+  const game = gameManager.getGame(roomId);
+  if (!game) return;
+
+  const player = game.players.find(p => p.id === socket.data.userId);
+  if (player) {
+    socket.emit('hand_update', { hand: player.hand });
+  }
+});
+
 }
 
 /**
  * BOT AI - Process bot's turn
+ * ✅ FIX: Updated to handle userId properly
  */
 function processBotTurn(
   io: Server,
@@ -416,4 +463,7 @@ function processBotTurn(
   } catch (error) {
     console.error('[Bot] Error processing bot turn:', error);
   }
+
+
+  
 }

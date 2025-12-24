@@ -5,7 +5,7 @@ export interface SocketData {
   roomId?: string;
   playerName?: string;
   
-  // ADD THESE AUTHENTICATED USER PROPERTIES
+  // Authenticated user properties
   userId?: string;
   username?: string;
   email?: string;
@@ -28,6 +28,7 @@ export interface ClientToServerEvents {
   start_game: () => void;
   play_card: (data: { cardId: string; chosenColor?: string }) => void;
   draw_card: () => void;
+  request_hand: () => void; // ✅ ADDED THIS
 }
 
 // Server → Client events
