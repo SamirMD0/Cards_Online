@@ -64,7 +64,7 @@ export default function PlayerHand({
                 faceUp={true}
                 onClick={() => onCardClick(card)}
                 disabled={!isMyTurn}
-                size="xs"
+                size="sm"
                 className="hover:scale-105 sm:hover:scale-110 transition-all"
               />
             ))

@@ -3,6 +3,7 @@ import { Server } from 'socket.io';
 import { Socket } from '../../../types/socket.types.js';
 import { GameStateManager } from '../../../managers/GameStateManager.js';
 import { emitError } from '../../../utils/errors.js';
+import { requireGameContext } from './validators.js';
 import { processBotTurn } from './botTurnProcessor.js';
 
 export function handleStartGame(
@@ -11,44 +12,41 @@ export function handleStartGame(
   gameManager: GameStateManager
 ) {
   try {
-    const roomId = gameManager.getPlayerRoom(socket.id);
-    if (!roomId) {
-      throw new Error('You are not in a room');
-    }
+    const { userId, roomId, game } = requireGameContext(socket, gameManager);
     
-    const game = gameManager.getGameOrThrow(roomId);
-    
-    // Validate host (use userId)
-    if (game.players.length > 0 && game.players[0].id !== socket.data.userId) {
+    // Validation: host check
+    const hostId = game.players[0]?.id;
+    if (hostId !== userId) {
       throw new Error('Only the host can start the game');
     }
     
-    // Validate player count
+    // Validation: player count
     if (game.players.length < 2) {
       throw new Error('Need at least 2 players to start');
     }
     
-    // Start the game
+    // Start game
     const started = game.startGame();
     if (!started) {
       throw new Error('Failed to start game');
     }
     
-    console.log(`[Game] Game started in room ${roomId}`);
+    console.log(`[StartGame] Game started in room ${roomId}`);
     
-    // Broadcast game state to all players
+    // Broadcast game state
     io.to(roomId).emit('game_started', game.getPublicState());
     
-    // ✅ CRITICAL: Send each player their hand using socket lookup
+    // Send hands to each human player
     const socketsInRoom = Array.from(io.sockets.sockets.values()).filter(s => 
-      gameManager.getPlayerRoom(s.id) === roomId
+      gameManager.getSocketRoom(s.id) === roomId
     );
     
     game.players.forEach(player => {
-      // Find the socket that belongs to this userId
+      if (player.isBot) return;
+      
       const playerSocket = socketsInRoom.find(s => s.data.userId === player.id);
-      if (playerSocket && !player.isBot) {
-        console.log(`[Game] 📤 Sending ${player.hand.length} cards to ${player.name}`);
+      if (playerSocket) {
+        console.log(`[StartGame] Sending ${player.hand.length} cards to ${player.name}`);
         playerSocket.emit('hand_update', { hand: player.hand });
       }
     });
@@ -56,14 +54,14 @@ export function handleStartGame(
     // Reset inactivity timer
     gameManager.resetGameTimer(roomId);
     
-    // If first player is a bot, trigger bot turn
+    // Trigger bot turn if first player is bot
     const firstPlayer = game.players.find(p => p.id === game.currentPlayer);
     if (firstPlayer?.isBot) {
       setTimeout(() => processBotTurn(io, game, roomId, gameManager), 1000);
     }
     
   } catch (error) {
-    console.error('[Game] Start game error:', error);
+    console.error('[StartGame] Error:', error);
     emitError(socket, error);
   }
 }

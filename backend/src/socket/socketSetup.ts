@@ -1,26 +1,24 @@
+// backend/src/socket/socketSetup.ts
 import { Server } from 'socket.io';
 import { Socket } from '../types/socket.types.js';
 import { RoomService } from '../services/RoomService.js';
 import { GameStateManager } from '../managers/GameStateManager.js';
-import { socketAuthMiddleware } from '../middleware/socketAuth.js'; // ADD THIS
+import { socketAuthMiddleware } from '../middleware/socketAuth.js';
 import { setupRoomHandlers, handlePlayerLeave } from './handlers/roomHandlers.js';
-import { setupGameHandlers } from './handlers/gameHandlers.js';
+import { setupGameHandlers } from './handlers/game/index.js'; // ✅ NEW IMPORT
 
 export function setupSocketIO(io: Server): void {
   const roomService = RoomService.getInstance();
   const gameManager = GameStateManager.getInstance();
 
-  // APPLY AUTH MIDDLEWARE
   io.use(socketAuthMiddleware);
 
   io.on('connection', (socket: Socket) => {
     console.log(`[Socket] User ${socket.data.username} connected: ${socket.id}`);
 
-    // Setup all handlers
     setupRoomHandlers(io, socket, roomService, gameManager);
-    setupGameHandlers(io, socket, roomService, gameManager);
+    setupGameHandlers(io, socket, roomService, gameManager); // ✅ USES NEW STRUCTURE
 
-    // Handle disconnection
     socket.on('disconnect', () => {
       handleDisconnection(io, socket, roomService, gameManager);
     });
@@ -36,7 +34,7 @@ function handleDisconnection(
   gameManager: GameStateManager
 ): void {
   try {
-    const roomId = gameManager.getPlayerRoom(socket.id);
+    const roomId = gameManager.getSocketRoom(socket.id); // ✅ FIXED METHOD NAME
     
     if (roomId) {
       handlePlayerLeave(io, socket, roomId, roomService, gameManager);

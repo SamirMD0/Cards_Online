@@ -5,6 +5,7 @@ import { GameStateManager } from '../../../managers/GameStateManager.js';
 import { validatePlayCard } from '../../../validators/schemas.js';
 import { canPlayCard, applyCardEffect, getNextPlayer, checkWinner } from '../../../game/rules.js';
 import { emitError } from '../../../utils/errors.js';
+import { requireGameContext, requireTurn, requirePlayer } from './validators.js';
 import { processBotTurn } from './botTurnProcessor.js';
 
 export function handlePlayCard(
@@ -14,27 +15,15 @@ export function handlePlayCard(
   data: any
 ) {
   try {
+    // Validate input schema
     const validated = validatePlayCard(data);
-    const roomId = gameManager.getPlayerRoom(socket.id);
     
-    if (!roomId) {
-      throw new Error('You are not in a room');
-    }
+    // Validate game context
+    const { userId, roomId, game } = requireGameContext(socket, gameManager);
+    requireTurn(game, userId);
+    const player = requirePlayer(game, userId);
     
-    const game = gameManager.getGameOrThrow(roomId);
-    const userId = socket.data.userId;
-    
-    // ✅ CRITICAL: Use userId for turn validation
-    if (game.currentPlayer !== userId) {
-      throw new Error('It is not your turn');
-    }
-    
-    // Find player by userId
-    const player = game.players.find(p => p.id === userId);
-    if (!player) {
-      throw new Error('Player not found in game');
-    }
-    
+    // Find card in hand
     const cardIndex = player.hand.findIndex(c => c.id === validated.cardId);
     if (cardIndex === -1) {
       throw new Error('Card not found in your hand');
@@ -43,12 +32,12 @@ export function handlePlayCard(
     const card = player.hand[cardIndex];
     const topCard = game.discardPile[game.discardPile.length - 1];
     
-    // Validate the card can be played
+    // Validate card can be played
     if (!canPlayCard(card, topCard, game.currentColor)) {
       throw new Error('This card cannot be played on the current card');
     }
     
-    // Special case: If there's a pending draw, only draw cards can be played
+    // Special case: pending draw forces draw cards only
     if (game.pendingDraw > 0) {
       const isDrawCard = card.value === 'draw2' || card.value === 'wild_draw4';
       if (!isDrawCard) {
@@ -56,26 +45,25 @@ export function handlePlayCard(
       }
     }
     
-    // Wild cards require a color choice
+    // Wild cards require color choice
     if (card.color === 'wild' && !validated.chosenColor) {
       throw new Error('You must choose a color for wild cards');
     }
     
-    // Execute the play
+    // Execute play
     player.hand.splice(cardIndex, 1);
     game.discardPile.push(card);
     
-    // Set the current color
+    // Set current color
     if (card.color === 'wild') {
       game.currentColor = validated.chosenColor as any;
     } else {
       game.currentColor = card.color;
     }
     
-    console.log(`[Game] ${player.name} played ${card.color} ${card.value}, hand now has ${player.hand.length} cards`);
+    console.log(`[PlayCard] ${player.name} played ${card.color} ${card.value}, hand: ${player.hand.length} cards`);
     
-    // ✅ CRITICAL: Send updated hand to player IMMEDIATELY
-    console.log(`[Game] 📤 Sending updated hand to ${player.name} (${player.hand.length} cards)`);
+    // Send updated hand to player
     socket.emit('hand_update', { hand: player.hand });
     
     // Broadcast card played
@@ -88,25 +76,25 @@ export function handlePlayCard(
     // Check for winner
     if (checkWinner(player)) {
       game.winner = userId;
-      console.log(`[Game] ${player.name} wins!`);
+      console.log(`[PlayCard] ${player.name} wins!`);
       
       io.to(roomId).emit('game_over', {
         winner: player.name,
         winnerId: userId
       });
       
-      return;
+      return; // Game over, don't continue
     }
     
     // Apply card effects (skip, reverse, draw2, draw4)
     applyCardEffect(card, game);
     
-    // Move to next player if not already moved by effect
+    // Advance turn (unless skip/reverse already moved it)
     if (!['skip', 'reverse'].includes(card.value as string)) {
       game.currentPlayer = getNextPlayer(game);
     }
     
-    // Broadcast updated game state
+    // Broadcast state
     io.to(roomId).emit('game_state', game.getPublicState());
     
     // Reset timer
@@ -119,7 +107,7 @@ export function handlePlayCard(
     }
     
   } catch (error) {
-    console.error('[Game] Play card error:', error);
+    console.error('[PlayCard] Error:', error);
     emitError(socket, error);
   }
 }

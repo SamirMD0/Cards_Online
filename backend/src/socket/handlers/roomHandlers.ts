@@ -8,7 +8,6 @@ import { emitError } from '../../utils/errors.js';
 /**
  * Room Handlers: THIN layer between Socket.IO and business logic
  */
-
 export function setupRoomHandlers(
   io: Server,
   socket: Socket,
@@ -35,7 +34,6 @@ export function setupRoomHandlers(
     try {
       const validated = validateCreateRoom(data);
 
-      // Use authenticated user ID and username
       if (!socket.data.userId) {
         throw new Error('User not authenticated');
       }
@@ -92,17 +90,16 @@ export function setupRoomHandlers(
 
       roomService.canJoinRoom(roomId, game.gameStarted, game.players.length);
 
-      // Add player using userId (this is stored in game state)
+      // Add player using userId (stored in internal game state)
       const added = game.addPlayer(userId, playerName);
       if (!added) {
         socket.emit('error', { message: 'Failed to join room' });
         return;
       }
 
-      // ✅ IMPORTANT: Track socket.id -> roomId mapping for socket events
+      // ✅ FIX: Track socket-to-room mapping explicitly
       socket.join(roomId);
-      socket.data.roomId = roomId;
-      gameManager.setPlayerRoom(socket.id, roomId); // Maps socket.id -> roomId
+      gameManager.setSocketRoom(socket.id, roomId); 
       gameManager.resetGameTimer(roomId);
 
       socket.emit('joined_room', { roomId });
@@ -114,7 +111,7 @@ export function setupRoomHandlers(
 
       broadcastRoomsList(io, roomService, gameManager);
 
-      console.log(`[RoomHandlers] ${playerName} (userId: ${userId}, socketId: ${socket.id}) joined room ${roomId}`);
+      console.log(`[RoomHandlers] ${playerName} (userId: ${userId}) joined room ${roomId}`);
 
     } catch (error) {
       emitError(socket, error);
@@ -126,7 +123,8 @@ export function setupRoomHandlers(
    */
   socket.on('leave_room', () => {
     try {
-      const roomId = gameManager.getPlayerRoom(socket.id);
+      // ✅ FIX: Use the renamed mapping method
+      const roomId = gameManager.getSocketRoom(socket.id);
       if (!roomId) return;
 
       handlePlayerLeave(io, socket, roomId, roomService, gameManager);
@@ -139,28 +137,20 @@ export function setupRoomHandlers(
 
 // ===== Helper Functions =====
 
-/**
- * Build rooms list for lobby
- */
 function buildRoomsList(
   roomService: RoomService,
   gameManager: GameStateManager
 ): any[] {
   const rooms: any[] = [];
-
   for (const [roomId, metadata] of roomService.getAllRooms().entries()) {
     const game = gameManager.getGame(roomId);
     if (game) {
       rooms.push(gameManager.buildRoomListItem(roomId, game, metadata));
     }
   }
-
   return rooms;
 }
 
-/**
- * Broadcast rooms list to all connected clients
- */
 function broadcastRoomsList(
   io: Server,
   roomService: RoomService,
@@ -183,28 +173,26 @@ export function handlePlayerLeave(
   const game = gameManager.getGame(roomId);
   if (!game) return;
 
-  // ✅ FIX: Remove player by userId, not socket.id
   const userId = socket.data.userId;
-  if (userId) {
-    game.removePlayer(userId);
-    console.log(`[RoomHandlers] Player ${userId} (socket: ${socket.id}) left room ${roomId}`);
+  if (!userId) {
+    console.warn('[RoomHandlers] No userId found on socket during leave');
+    return;
   }
 
-  // If room is empty, delete everything
+  // Remove by persistent userId
+  game.removePlayer(userId);
+  
+  // ✅ FIX: Clean up transport mapping
+  socket.leave(roomId);
+  gameManager.removeSocketMapping(socket.id);
+
   if (game.players.length === 0) {
     gameManager.deleteGame(roomId);
     roomService.deleteRoom(roomId);
-    console.log(`[RoomHandlers] Room ${roomId} deleted (empty)`);
   } else {
-    // Notify remaining players
     io.to(roomId).emit('player_left', { playerId: userId });
     io.to(roomId).emit('game_state', game.getPublicState());
   }
 
-  // Cleanup socket mappings
-  socket.leave(roomId);
-  gameManager.removePlayerMapping(socket.id);
-
-  // Broadcast updated room list
   broadcastRoomsList(io, roomService, gameManager);
 }

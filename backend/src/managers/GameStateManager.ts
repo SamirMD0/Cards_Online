@@ -1,6 +1,5 @@
 import { GameState } from '../game/gameState.js';
 import { NotFoundError } from '../utils/errors.js';
-import { PublicGameState } from '../types/game.types.js';
 
 /**
  * GameStateManager: Centralized game state management
@@ -9,7 +8,12 @@ import { PublicGameState } from '../types/game.types.js';
 export class GameStateManager {
   private games = new Map<string, GameState>();
   private gameTimers = new Map<string, NodeJS.Timeout>();
-  private playerToRoom = new Map<string, string>();
+  
+  /**
+   * FIX: Renamed from playerToRoom to socketToRoom to be explicit.
+   * This tracks the transport-layer connection to a specific room.
+   */
+  private socketToRoom = new Map<string, string>();
   
   private static instance: GameStateManager;
   private readonly GAME_TIMEOUT = 30 * 60 * 1000; // 30 minutes
@@ -60,15 +64,15 @@ export class GameStateManager {
   }
 
   /**
-   * Delete game
+   * Delete game and clean up related transport mappings
    */
   deleteGame(roomId: string): boolean {
     this.clearGameTimer(roomId);
     
-    // Remove all player mappings for this room
-    for (const [playerId, mappedRoomId] of this.playerToRoom.entries()) {
+    // Clean up socket mappings associated with this room
+    for (const [socketId, mappedRoomId] of this.socketToRoom.entries()) {
       if (mappedRoomId === roomId) {
-        this.playerToRoom.delete(playerId);
+        this.socketToRoom.delete(socketId);
       }
     }
 
@@ -80,43 +84,34 @@ export class GameStateManager {
   }
 
   /**
-   * Map player to room
+   * --- Socket-to-Room Mapping Logic ---
+   * Used for transport-layer lookups (e.g., on disconnect or broadcast)
    */
-  setPlayerRoom(playerId: string, roomId: string): void {
-    this.playerToRoom.set(playerId, roomId);
+
+  setSocketRoom(socketId: string, roomId: string): void {
+    this.socketToRoom.set(socketId, roomId);
+  }
+
+  getSocketRoom(socketId: string): string | undefined {
+    return this.socketToRoom.get(socketId);
+  }
+
+  removeSocketMapping(socketId: string): void {
+    this.socketToRoom.delete(socketId);
   }
 
   /**
-   * Get room ID for player
+   * Maintenance & Utilities
    */
-  getPlayerRoom(playerId: string): string | undefined {
-    return this.playerToRoom.get(playerId);
-  }
 
-  /**
-   * Remove player from room mapping
-   */
-  removePlayerMapping(playerId: string): void {
-    this.playerToRoom.delete(playerId);
-  }
-
-  /**
-   * Get all active games
-   */
   getAllGames(): Map<string, GameState> {
     return new Map(this.games);
   }
 
-  /**
-   * Get game count
-   */
   getGameCount(): number {
     return this.games.size;
   }
 
-  /**
-   * Reset inactivity timer for a game
-   */
   resetGameTimer(roomId: string): void {
     this.clearGameTimer(roomId);
 
@@ -131,9 +126,6 @@ export class GameStateManager {
     this.gameTimers.set(roomId, timer);
   }
 
-  /**
-   * Clear timer for a game
-   */
   private clearGameTimer(roomId: string): void {
     const timer = this.gameTimers.get(roomId);
     if (timer) {
@@ -142,16 +134,13 @@ export class GameStateManager {
     }
   }
 
-  /**
-   * Build public game state for a room (used for room list)
-   */
   buildRoomListItem(roomId: string, game: GameState, roomMetadata: any): any {
     return {
       id: roomId,
       roomName: roomMetadata.roomName,
       roomCode: roomMetadata.roomCode,
       players: game.players.map(p => ({
-        id: p.id,
+        id: p.id, // This should be the persistent userId
         name: p.name,
         isHost: p.id === game.players[0]?.id,
         isReady: true,

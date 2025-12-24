@@ -56,7 +56,7 @@ export default function OpponentHand({
                 color="wild"
                 value=""
                 faceUp={false}
-                size="xs"
+                size="sm"
                 disabled
                 className="shadow-md"
               />
