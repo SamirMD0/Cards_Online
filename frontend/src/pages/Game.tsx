@@ -13,6 +13,7 @@ import GameOverModal from "../components/game/GameOverModal";
 import WaitingRoom from "../components/game/WaitingRoom";
 import { socketService } from "../socket";
 import type { GameState, Card } from "../types";
+import ReconnectionModal from '../components/ReconnectionModal';
 
 export default function Game() {
   const { roomId } = useParams<{ roomId: string }>();
@@ -26,6 +27,13 @@ export default function Game() {
   const [showGameOver, setShowGameOver] = useState(false);
   const [winner, setWinner] = useState<string>("");
   const [notification, setNotification] = useState("");
+
+   const [showReconnectModal, setShowReconnectModal] = useState(false);
+  const [isReconnecting, setIsReconnecting] = useState(false);
+  const [canReconnect, setCanReconnect] = useState(false);
+  const [reconnectRoomId, setReconnectRoomId] = useState<string | null>(null);
+
+
 
   // ✅ CRITICAL FIX: Use userId for turn validation
   const userId = user?.id || null;
@@ -108,6 +116,38 @@ export default function Game() {
       console.log(`[Game] 📡 Event: ${eventName}`, args);
     });
 
+       socketService.checkReconnection();
+    setIsReconnecting(true);
+    setShowReconnectModal(true);
+
+    // ✅ ADD: Handle reconnection result
+    socketService.onReconnectionResult((data) => {
+      setIsReconnecting(false);
+      
+      if (data.canReconnect) {
+        setCanReconnect(true);
+        setReconnectRoomId(data.roomId);
+      } else {
+        setCanReconnect(false);
+        setShowReconnectModal(false);
+      }
+    });
+
+    // ✅ ADD: Handle game restored
+    socketService.onGameRestored((data) => {
+      console.log('[Game] Game restored!', data);
+      setGameState(data.gameState);
+      setPlayerHand(data.yourHand);
+      setShowReconnectModal(false);
+      showNotification(data.message || 'Reconnected to game');
+    });
+
+    // ✅ ADD: Handle other player reconnected
+    socketService.onPlayerReconnected((data) => {
+      showNotification(`${data.playerName} reconnected`);
+    });
+
+
     console.log('[Game] ✅ All listeners attached');
 
     return () => {
@@ -118,9 +158,26 @@ export default function Game() {
       socketService.off("card_played");
       socketService.off("game_over");
       socketService.off("error");
+       socketService.off('reconnection_result');
+      socketService.off('game_restored');
+      socketService.off('player_reconnected');
       socketService.socket.offAny();
+
     };
+
+    
   }, [roomId, navigate, userId]);
+
+  const handleReconnect = () => {
+    if (reconnectRoomId) {
+      socketService.reconnectToGame(reconnectRoomId);
+    }
+  };
+
+  const handleDismissReconnect = () => {
+    setShowReconnectModal(false);
+    navigate('/lobby');
+  };
 
   const showNotification = (message: string) => {
     setNotification(message);
@@ -243,6 +300,14 @@ export default function Game() {
         gameState={gameState}
         isMyTurn={isMyTurn}
         currentPlayerName={currentPlayer?.name}
+      />
+
+       <ReconnectionModal
+        isOpen={showReconnectModal}
+        isReconnecting={isReconnecting}
+        canReconnect={canReconnect}
+        onReconnect={handleReconnect}
+        onDismiss={handleDismissReconnect}
       />
 
       {/* Game Table */}

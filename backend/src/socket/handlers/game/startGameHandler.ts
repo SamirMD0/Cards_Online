@@ -6,13 +6,13 @@ import { emitError } from '../../../utils/errors.js';
 import { requireGameContext } from './validators.js';
 import { processBotTurn } from './botTurnProcessor.js';
 
-export function handleStartGame(
+export async function handleStartGame(
   io: Server,
   socket: Socket,
   gameManager: GameStateManager
 ) {
   try {
-    const { userId, roomId, game } = requireGameContext(socket, gameManager);
+    const { userId, roomId, game } = await requireGameContext(socket, gameManager);
     
     // Validation: host check
     const hostId = game.players[0]?.id;

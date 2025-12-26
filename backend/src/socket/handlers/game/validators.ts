@@ -31,11 +31,11 @@ export function requireRoom(socket: Socket, gameManager: GameStateManager): stri
  * Full validation: auth + room + game state
  * @returns { userId, roomId, game }
  */
-export function requireGameContext(socket: Socket, gameManager: GameStateManager) {
+export async function requireGameContext(socket: Socket, gameManager: GameStateManager) {
   const userId = requireAuth(socket);
   const roomId = requireRoom(socket, gameManager);
-  const game = gameManager.getGameOrThrow(roomId);
-  
+  const game = await gameManager.getGameOrThrow(roomId);
+
   return { userId, roomId, game };
 }
 

@@ -7,8 +7,9 @@ import { canPlayCard, applyCardEffect, getNextPlayer, checkWinner } from '../../
 import { emitError } from '../../../utils/errors.js';
 import { requireGameContext, requireTurn, requirePlayer } from './validators.js';
 import { processBotTurn } from './botTurnProcessor.js';
+import { GameHistoryService } from '../../../services/GameHistoryService.js';
 
-export function handlePlayCard(
+export async function handlePlayCard(
   io: Server,
   socket: Socket,
   gameManager: GameStateManager,
@@ -19,7 +20,7 @@ export function handlePlayCard(
     const validated = validatePlayCard(data);
     
     // Validate game context
-    const { userId, roomId, game } = requireGameContext(socket, gameManager);
+    const { userId, roomId, game } = await requireGameContext(socket, gameManager);
     requireTurn(game, userId);
     const player = requirePlayer(game, userId);
     
@@ -72,6 +73,9 @@ export function handlePlayCard(
       card,
       chosenColor: game.currentColor
     });
+
+    // ✅ ADD THIS after emitting card_played
+     await gameManager.saveGame(roomId);
     
     // Check for winner
     if (checkWinner(player)) {

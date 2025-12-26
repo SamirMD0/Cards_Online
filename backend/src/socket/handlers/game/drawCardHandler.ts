@@ -8,24 +8,21 @@ import { requireGameContext, requireTurn, requirePlayer } from './validators.js'
 import { processBotTurn } from './botTurnProcessor.js';
 import { Card } from '../../../types/game.types.js';
 
-export function handleDrawCard(
+export async function handleDrawCard(
   io: Server,
   socket: Socket,
   gameManager: GameStateManager
 ) {
   try {
-    const { userId, roomId, game } = requireGameContext(socket, gameManager);
-    
-    // Validation: turn and player
+    const { userId, roomId, game } = await requireGameContext(socket, gameManager);
+
     requireTurn(game, userId);
     const player = requirePlayer(game, userId);
-    
-    // Determine draw count
+
     const drawCount = game.pendingDraw > 0 ? game.pendingDraw : 1;
-    
+
     console.log(`[DrawCard] ${player.name} drawing ${drawCount} card(s)`);
-    
-    // Draw cards
+
     const drawnCards: Card[] = [];
     for (let i = 0; i < drawCount; i++) {
       const drawn = game.drawCard(userId);
@@ -33,35 +30,33 @@ export function handleDrawCard(
         drawnCards.push(drawn[0]);
       }
     }
-    
-    // Clear pending draws
+
     game.pendingDraw = 0;
-    
-    // Broadcast draw event (count only, not cards)
+
     io.to(roomId).emit('cards_drawn', {
       playerId: userId,
       count: drawnCards.length
     });
-    
-    // Send updated hand to drawing player
-    console.log(`[DrawCard] Sending updated hand to ${player.name} (${player.hand.length} cards)`);
+
     socket.emit('hand_update', { hand: player.hand });
-    
-    // Advance turn
+
     game.currentPlayer = getNextPlayer(game);
-    
-    // Broadcast state
+
     io.to(roomId).emit('game_state', game.getPublicState());
-    
-    // Reset timer
+
     gameManager.resetGameTimer(roomId);
-    
-    // Trigger bot if next player is bot
+
+ 
+    await gameManager.saveGame(roomId);
+
     const nextPlayer = game.players.find(p => p.id === game.currentPlayer);
     if (nextPlayer?.isBot) {
-      setTimeout(() => processBotTurn(io, game, roomId, gameManager), 1500);
+      setTimeout(
+        () => processBotTurn(io, game, roomId, gameManager),
+        1500
+      );
     }
-    
+
   } catch (error) {
     console.error('[DrawCard] Error:', error);
     emitError(socket, error);

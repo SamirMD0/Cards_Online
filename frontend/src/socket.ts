@@ -149,6 +149,27 @@ class SocketService {
   off(event: string, callback?: any) {
     this.socket.off(event, callback);
   }
+
+  checkReconnection() {
+  this.socket.emit('check_reconnection');
+}
+
+reconnectToGame(roomId: string) {
+  this.socket.emit('reconnect_to_game', { roomId });
+}
+
+onReconnectionResult(callback: (data: any) => void) {
+  this.socket.on('reconnection_result', callback);
+}
+
+onGameRestored(callback: (data: any) => void) {
+  this.socket.on('game_restored', callback);
+}
+
+onPlayerReconnected(callback: (data: any) => void) {
+  this.socket.on('player_reconnected', callback);
+}
+
 }
 
 export const socketService = new SocketService();

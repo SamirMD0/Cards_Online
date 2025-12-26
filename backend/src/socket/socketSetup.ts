@@ -5,7 +5,8 @@ import { RoomService } from '../services/RoomService.js';
 import { GameStateManager } from '../managers/GameStateManager.js';
 import { socketAuthMiddleware } from '../middleware/socketAuth.js';
 import { setupRoomHandlers, handlePlayerLeave } from './handlers/roomHandlers.js';
-import { setupGameHandlers } from './handlers/game/index.js'; // ✅ NEW IMPORT
+import { setupGameHandlers } from './handlers/game/index.js'; 
+import { setupReconnectionHandler } from './handlers/reconnectionHandler.js';
 
 export function setupSocketIO(io: Server): void {
   const roomService = RoomService.getInstance();
@@ -17,7 +18,8 @@ export function setupSocketIO(io: Server): void {
     console.log(`[Socket] User ${socket.data.username} connected: ${socket.id}`);
 
     setupRoomHandlers(io, socket, roomService, gameManager);
-    setupGameHandlers(io, socket, roomService, gameManager); // ✅ USES NEW STRUCTURE
+    setupGameHandlers(io, socket, roomService, gameManager); 
+    setupReconnectionHandler(io, socket, gameManager);
 
     socket.on('disconnect', () => {
       handleDisconnection(io, socket, roomService, gameManager);

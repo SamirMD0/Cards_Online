@@ -18,9 +18,9 @@ export function setupRoomHandlers(
   /**
    * Get all rooms (for lobby)
    */
-  socket.on('get_rooms', () => {
+  socket.on('get_rooms', async () => {
     try {
-      const roomsList = buildRoomsList(roomService, gameManager);
+      const roomsList = await buildRoomsList(roomService, gameManager);
       socket.emit('rooms_list', roomsList);
     } catch (error) {
       emitError(socket, error);
@@ -30,7 +30,7 @@ export function setupRoomHandlers(
   /**
    * Create a new room
    */
-  socket.on('create_room', (data) => {
+  socket.on('create_room', async (data) => {
     try {
       const validated = validateCreateRoom(data);
 
@@ -52,13 +52,13 @@ export function setupRoomHandlers(
       }
 
       gameManager.createGame(roomId);
-      
-      socket.emit('room_created', { 
-        roomId, 
-        roomCode: metadata.roomCode 
+
+      socket.emit('room_created', {
+        roomId,
+        roomCode: metadata.roomCode
       });
 
-      broadcastRoomsList(io, roomService, gameManager);
+      await broadcastRoomsList(io, roomService, gameManager);
 
       console.log(`[RoomHandlers] ${socket.data.username} created room ${roomId} (${metadata.roomCode})`);
 
@@ -70,7 +70,7 @@ export function setupRoomHandlers(
   /**
    * Join an existing room
    */
-  socket.on('join_room', (data) => {
+  socket.on('join_room', async (data) => {
     try {
       const validated = validateJoinRoom(data);
       const { roomId, playerName } = validated;
@@ -80,7 +80,7 @@ export function setupRoomHandlers(
       }
 
       const userId = socket.data.userId;
-      const game = gameManager.getGameOrThrow(roomId);
+      const game = await gameManager.getGameOrThrow(roomId);
       const room = roomService.getRoom(roomId);
 
       if (!room) {
@@ -99,17 +99,17 @@ export function setupRoomHandlers(
 
       // ✅ FIX: Track socket-to-room mapping explicitly
       socket.join(roomId);
-      gameManager.setSocketRoom(socket.id, roomId); 
+      gameManager.setSocketRoom(socket.id, roomId);
       gameManager.resetGameTimer(roomId);
 
       socket.emit('joined_room', { roomId });
       io.to(roomId).emit('game_state', game.getPublicState());
-      io.to(roomId).emit('player_joined', { 
+      io.to(roomId).emit('player_joined', {
         playerId: userId,
-        playerName 
+        playerName
       });
 
-      broadcastRoomsList(io, roomService, gameManager);
+      await broadcastRoomsList(io, roomService, gameManager);
 
       console.log(`[RoomHandlers] ${playerName} (userId: ${userId}) joined room ${roomId}`);
 
@@ -121,13 +121,13 @@ export function setupRoomHandlers(
   /**
    * Leave current room
    */
-  socket.on('leave_room', () => {
+  socket.on('leave_room', async () => {
     try {
       // ✅ FIX: Use the renamed mapping method
       const roomId = gameManager.getSocketRoom(socket.id);
       if (!roomId) return;
 
-      handlePlayerLeave(io, socket, roomId, roomService, gameManager);
+      await handlePlayerLeave(io, socket, roomId, roomService, gameManager);
 
     } catch (error) {
       emitError(socket, error);
@@ -137,13 +137,13 @@ export function setupRoomHandlers(
 
 // ===== Helper Functions =====
 
-function buildRoomsList(
+async function buildRoomsList(
   roomService: RoomService,
   gameManager: GameStateManager
-): any[] {
+): Promise<any[]> {
   const rooms: any[] = [];
   for (const [roomId, metadata] of roomService.getAllRooms().entries()) {
-    const game = gameManager.getGame(roomId);
+    const game = await gameManager.getGame(roomId);
     if (game) {
       rooms.push(gameManager.buildRoomListItem(roomId, game, metadata));
     }
@@ -151,26 +151,26 @@ function buildRoomsList(
   return rooms;
 }
 
-function broadcastRoomsList(
+async function broadcastRoomsList(
   io: Server,
   roomService: RoomService,
   gameManager: GameStateManager
-): void {
-  const roomsList = buildRoomsList(roomService, gameManager);
+): Promise<void> {
+  const roomsList = await buildRoomsList(roomService, gameManager);
   io.emit('rooms_list', roomsList);
 }
 
 /**
  * Handle player leaving a room
  */
-export function handlePlayerLeave(
+export async function handlePlayerLeave(
   io: Server,
   socket: Socket,
   roomId: string,
   roomService: RoomService,
   gameManager: GameStateManager
-): void {
-  const game = gameManager.getGame(roomId);
+): Promise<void> {
+  const game = await gameManager.getGame(roomId);
   if (!game) return;
 
   const userId = socket.data.userId;
@@ -181,7 +181,7 @@ export function handlePlayerLeave(
 
   // Remove by persistent userId
   game.removePlayer(userId);
-  
+
   // ✅ FIX: Clean up transport mapping
   socket.leave(roomId);
   gameManager.removeSocketMapping(socket.id);
@@ -194,5 +194,5 @@ export function handlePlayerLeave(
     io.to(roomId).emit('game_state', game.getPublicState());
   }
 
-  broadcastRoomsList(io, roomService, gameManager);
+  await broadcastRoomsList(io, roomService, gameManager);
 }

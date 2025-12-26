@@ -7,12 +7,12 @@ import { requireGameContext, requirePlayer } from './validators.js';
 /**
  * Handles manual hand sync requests (used for debugging/reconnection)
  */
-export function handleRequestHand(
+export async function handleRequestHand(
   socket: Socket,
   gameManager: GameStateManager
 ) {
   try {
-    const { userId, roomId, game } = requireGameContext(socket, gameManager);
+    const { userId, roomId, game } = await requireGameContext(socket, gameManager);
     
     console.log(`[RequestHand] User ${userId} requesting hand in room ${roomId}`);
     

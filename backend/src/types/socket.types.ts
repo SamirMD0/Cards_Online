@@ -29,6 +29,8 @@ export interface ClientToServerEvents {
   play_card: (data: { cardId: string; chosenColor?: string }) => void;
   draw_card: () => void;
   request_hand: () => void; // ✅ ADDED THIS
+  check_reconnection: () => void;
+  reconnect_to_game: (data: { roomId: string }) => void;
 }
 
 // Server → Client events
@@ -46,4 +48,7 @@ export interface ServerToClientEvents {
   player_joined: (data: { playerId: string; playerName: string }) => void;
   player_left: (data: { playerId: string }) => void;
   error: (error: { message: string }) => void;
+  reconnection_result: (data: { canReconnect: boolean; reason?: string; roomId?: string; gameState?: any }) => void;
+  game_restored: (data: { roomId: string; gameState: any; yourHand: any[]; message: string }) => void;
+  player_reconnected: (data: { playerId: string; playerName: string }) => void;
 }

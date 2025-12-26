@@ -14,7 +14,7 @@ import { applyCardEffect, getNextPlayer, checkWinner } from '../../../game/rules
  * @param roomId - Room to broadcast to
  * @param gameManager - For timer resets
  */
-export function processBotTurn(
+export async function processBotTurn(
   io: Server,
   game: GameState,
   roomId: string,
@@ -107,6 +107,8 @@ export function processBotTurn(
     
     // Reset timer
     gameManager.resetGameTimer(roomId);
+
+    await gameManager.saveGame(roomId);
     
     // Chain bot turns if next player is also bot
     const nextPlayer = game.players.find(p => p.id === game.currentPlayer);

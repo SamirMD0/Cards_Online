@@ -1,18 +1,19 @@
 import { GameState } from '../game/gameState.js';
 import { NotFoundError } from '../utils/errors.js';
+import { RedisGameStore } from '../services/RedisGameStore.js';
 
 /**
- * GameStateManager: Centralized game state management
- * Wraps existing GameState class with better encapsulation
+ * GameStateManager: Hybrid memory + Redis persistence
+ * 
+ * Architecture:
+ * - Memory (Map) = source of truth for active games (fast access)
+ * - Redis = persistence layer (survives restarts)
+ * - On mutation: save to both memory + Redis
+ * - On read: check memory first, lazy-load from Redis if missing
  */
 export class GameStateManager {
   private games = new Map<string, GameState>();
   private gameTimers = new Map<string, NodeJS.Timeout>();
-  
-  /**
-   * FIX: Renamed from playerToRoom to socketToRoom to be explicit.
-   * This tracks the transport-layer connection to a specific room.
-   */
   private socketToRoom = new Map<string, string>();
   
   private static instance: GameStateManager;
@@ -30,7 +31,7 @@ export class GameStateManager {
   /**
    * Create a new game for a room
    */
-  createGame(roomId: string): GameState {
+  async createGame(roomId: string): Promise<GameState> {
     if (this.games.has(roomId)) {
       console.warn(`[GameStateManager] Game already exists for room: ${roomId}`);
       return this.games.get(roomId)!;
@@ -38,6 +39,10 @@ export class GameStateManager {
 
     const game = new GameState(roomId);
     this.games.set(roomId, game);
+    
+    // Persist to Redis
+    await RedisGameStore.saveGame(roomId, game);
+    
     this.resetGameTimer(roomId);
 
     console.log(`[GameStateManager] Game created for room: ${roomId}`);
@@ -46,17 +51,33 @@ export class GameStateManager {
   }
 
   /**
-   * Get game by room ID
+   * Get game by room ID (with Redis fallback)
    */
-  getGame(roomId: string): GameState | undefined {
-    return this.games.get(roomId);
+  async getGame(roomId: string): Promise<GameState | undefined> {
+    // Check memory first (fast path)
+    if (this.games.has(roomId)) {
+      return this.games.get(roomId);
+    }
+
+    // Not in memory - try Redis (lazy load)
+    console.log(`[GameStateManager] Game ${roomId} not in memory, loading from Redis...`);
+    const game = await RedisGameStore.loadGame(roomId);
+    
+    if (game) {
+      // Restore to memory
+      this.games.set(roomId, game);
+      this.resetGameTimer(roomId);
+      console.log(`[GameStateManager] Game ${roomId} restored from Redis`);
+    }
+
+    return game || undefined;
   }
 
   /**
    * Get game or throw error
    */
-  getGameOrThrow(roomId: string): GameState {
-    const game = this.games.get(roomId);
+  async getGameOrThrow(roomId: string): Promise<GameState> {
+    const game = await this.getGame(roomId);
     if (!game) {
       throw new NotFoundError(`Game not found for room: ${roomId}`);
     }
@@ -64,19 +85,42 @@ export class GameStateManager {
   }
 
   /**
-   * Delete game and clean up related transport mappings
+   * Save game state (memory + Redis)
+   * Call this after EVERY game state mutation!
    */
-  deleteGame(roomId: string): boolean {
+  async saveGame(roomId: string): Promise<void> {
+    const game = this.games.get(roomId);
+    if (!game) {
+      console.warn(`[GameStateManager] Cannot save - game ${roomId} not in memory`);
+      return;
+    }
+
+    // Persist to Redis (async, don't block)
+    await RedisGameStore.saveGame(roomId, game);
+    
+    // Reset inactivity timer
+    await RedisGameStore.touchGame(roomId);
+  }
+
+  /**
+   * Delete game and clean up
+   */
+  async deleteGame(roomId: string): Promise<boolean> {
     this.clearGameTimer(roomId);
     
-    // Clean up socket mappings associated with this room
+    // Clean up socket mappings
     for (const [socketId, mappedRoomId] of this.socketToRoom.entries()) {
       if (mappedRoomId === roomId) {
         this.socketToRoom.delete(socketId);
       }
     }
 
+    // Delete from Redis
+    await RedisGameStore.deleteGame(roomId);
+
+    // Delete from memory
     const deleted = this.games.delete(roomId);
+    
     if (deleted) {
       console.log(`[GameStateManager] Game deleted for room: ${roomId}`);
     }
@@ -84,9 +128,13 @@ export class GameStateManager {
   }
 
   /**
-   * --- Socket-to-Room Mapping Logic ---
-   * Used for transport-layer lookups (e.g., on disconnect or broadcast)
+   * Find room by user ID (for reconnection)
    */
+  async findRoomByUserId(userId: string): Promise<string | null> {
+    return await RedisGameStore.findRoomByUserId(userId);
+  }
+
+  // ===== Socket-to-Room Mapping (unchanged) =====
 
   setSocketRoom(socketId: string, roomId: string): void {
     this.socketToRoom.set(socketId, roomId);
@@ -100,9 +148,7 @@ export class GameStateManager {
     this.socketToRoom.delete(socketId);
   }
 
-  /**
-   * Maintenance & Utilities
-   */
+  // ===== Maintenance & Utilities =====
 
   getAllGames(): Map<string, GameState> {
     return new Map(this.games);
@@ -115,11 +161,11 @@ export class GameStateManager {
   resetGameTimer(roomId: string): void {
     this.clearGameTimer(roomId);
 
-    const timer = setTimeout(() => {
+    const timer = setTimeout(async () => {
       const game = this.games.get(roomId);
       if (game) {
         console.log(`[GameStateManager] Game ${roomId} timed out due to inactivity`);
-        this.deleteGame(roomId);
+        await this.deleteGame(roomId);
       }
     }, this.GAME_TIMEOUT);
 
@@ -140,7 +186,7 @@ export class GameStateManager {
       roomName: roomMetadata.roomName,
       roomCode: roomMetadata.roomCode,
       players: game.players.map(p => ({
-        id: p.id, // This should be the persistent userId
+        id: p.id,
         name: p.name,
         isHost: p.id === game.players[0]?.id,
         isReady: true,
