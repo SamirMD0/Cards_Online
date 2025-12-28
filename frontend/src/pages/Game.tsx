@@ -1,6 +1,5 @@
-// frontend/src/pages/Game.tsx - COMPLETE & FIXED
 import { useState, useEffect } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import Navigation from "../components/Navigation";
 import GameDebugPanel from "../components/game/GameDebugPanel";
@@ -14,11 +13,13 @@ import WaitingRoom from "../components/game/WaitingRoom";
 import { socketService } from "../socket";
 import type { GameState, Card } from "../types";
 import ReconnectionModal from '../components/ReconnectionModal';
+import { roomCookies } from '../utils/roomCookies';
 
 export default function Game() {
   const { roomId } = useParams<{ roomId: string }>();
   const navigate = useNavigate();
-  const { user } = useAuth(); // ✅ Get authenticated user
+  const location = useLocation();
+  const { user } = useAuth();
 
   const [gameState, setGameState] = useState<GameState | null>(null);
   const [playerHand, setPlayerHand] = useState<Card[]>([]);
@@ -28,49 +29,98 @@ export default function Game() {
   const [winner, setWinner] = useState<string>("");
   const [notification, setNotification] = useState("");
 
-   const [showReconnectModal, setShowReconnectModal] = useState(false);
+  const [showReconnectModal, setShowReconnectModal] = useState(false);
   const [isReconnecting, setIsReconnecting] = useState(false);
   const [canReconnect, setCanReconnect] = useState(false);
   const [reconnectRoomId, setReconnectRoomId] = useState<string | null>(null);
+  
+  const [isSocketConnected, setIsSocketConnected] = useState(false);
 
-
-
-  // ✅ CRITICAL FIX: Use userId for turn validation
   const userId = user?.id || null;
-  const isMyTurn = gameState?.currentPlayer === userId; // ✅ Compare userId to userId!
+  const isMyTurn = gameState?.currentPlayer === userId;
 
-  // Manual hand request for debugging
+  // ✅ NEW: Check if this is a reconnection attempt (from Lobby rejoin button)
+  const isReconnectAttempt = location.state?.reconnect === true;
+
   const requestHand = () => {
     console.log('[Game] 🔄 Requesting hand...');
-    console.log('[Game] User ID:', userId);
-    console.log('[Game] Socket ID:', socketService.socket.id);
     socketService.socket.emit('request_hand');
   };
 
   useEffect(() => {
-    if (!roomId) {
+    if (!roomId || !userId) {
       navigate("/lobby");
       return;
     }
 
-    console.log('[Game] 🎬 Initializing game');
+    console.log('[Game] 🎬 Component mounted');
     console.log('[Game] User ID:', userId);
-    console.log('[Game] Socket ID:', socketService.socket.id);
+    console.log('[Game] Room ID:', roomId);
+    console.log('[Game] Is Reconnect Attempt:', isReconnectAttempt);
 
-    // Socket event handlers
+    // Ensure socket is connected
+    if (!socketService.socket.connected) {
+      console.log('[Game] 🔌 Connecting socket...');
+      socketService.connect();
+    } else {
+      console.log('[Game] ✅ Socket already connected:', socketService.socket.id);
+      setIsSocketConnected(true);
+    }
+
+    const handleConnect = () => {
+      console.log('[Game] ✅ Socket connected:', socketService.socket.id);
+      setIsSocketConnected(true);
+      
+      // ✅ ONLY check reconnection if explicitly flagged as reconnect attempt
+      if (isReconnectAttempt) {
+        console.log('[Game] 🔍 This is a reconnection attempt, checking...');
+        setShowReconnectModal(true);
+        setIsReconnecting(true);
+        socketService.checkReconnection();
+      } else {
+        console.log('[Game] ℹ️ Fresh join, skipping reconnection check');
+      }
+    };
+
+    socketService.socket.on('connect', handleConnect);
+
+    // If already connected, trigger check if needed
+    if (socketService.socket.connected && isReconnectAttempt) {
+      console.log('[Game] 🔍 Socket already connected, checking reconnection...');
+      setShowReconnectModal(true);
+      setIsReconnecting(true);
+      socketService.checkReconnection();
+    }
+
+    return () => {
+      socketService.socket.off('connect', handleConnect);
+    };
+  }, [roomId, userId, navigate, isReconnectAttempt]);
+
+  // Main game logic
+  useEffect(() => {
+    if (!roomId || !isSocketConnected) return;
+
+    console.log('[Game] 🎮 Setting up game handlers');
+
     const handleGameState = (state: GameState) => {
       console.log('[Game] 📊 Game state received');
       setGameState(state);
+      setIsReconnecting(false);
+      setShowReconnectModal(false);
+    };
+
+    const handleJoinedRoom = (data: { roomId: string }) => {
+      console.log('[Game] ✅ Successfully joined room:', data.roomId);
+      setIsReconnecting(false);
+      setShowReconnectModal(false);
     };
 
     const handleGameStarted = (state: GameState) => {
       console.log('[Game] 🎮 Game started');
-      console.log('[Game] Current player:', state.currentPlayer);
-      console.log('[Game] My userId:', userId);
       setGameState(state);
       showNotification("Game started! 🎮");
       
-      // Auto-request hand after game starts
       setTimeout(() => {
         console.log('[Game] ⏰ Auto-requesting hand...');
         requestHand();
@@ -78,14 +128,11 @@ export default function Game() {
     };
 
     const handleHandUpdate = (data: { hand: Card[] }) => {
-      console.log('[Game] ✅✅✅ HAND UPDATE RECEIVED ✅✅✅');
-      console.log('[Game] Received', data.hand.length, 'cards');
-      console.log('[Game] Cards:', data.hand.map(c => `${c.color} ${c.value}`));
+      console.log('[Game] ✅ HAND UPDATE:', data.hand.length, 'cards');
       setPlayerHand(data.hand);
     };
 
     const handleCardPlayed = (data: any) => {
-      console.log('[Game] 🎴 Card played by:', data.playerId);
       const player = gameState?.players.find((p) => p.id === data.playerId);
       if (player) {
         showNotification(`${player.name} played ${data.card.value}`);
@@ -96,6 +143,9 @@ export default function Game() {
       console.log('[Game] 🏆 Game over:', data);
       setWinner(data.winner);
       setShowGameOver(true);
+      
+      // ✅ Clear cookie when game ends
+      roomCookies.clearCurrentRoom();
     };
 
     const handleError = (error: { message: string }) => {
@@ -103,79 +153,94 @@ export default function Game() {
       showNotification(error.message);
     };
 
+    const handleDisconnect = () => {
+      console.log('[Game] 🔌 Disconnected from server');
+      setIsSocketConnected(false);
+      
+      // ✅ When disconnected, flag for reconnection check on reconnect
+      console.log('[Game] Will check reconnection when socket reconnects');
+    };
+
+    const handleReconnectionResult = (data: any) => {
+      console.log('[Game] 🔄 Reconnection check result:', data);
+      setIsReconnecting(false);
+      
+      if (data.canReconnect && data.roomId) {
+        console.log('[Game] ✅ Can reconnect to room:', data.roomId);
+        setCanReconnect(true);
+        setReconnectRoomId(data.roomId);
+      } else {
+        console.log('[Game] ❌ No game to reconnect to');
+        setCanReconnect(false);
+        setShowReconnectModal(false);
+      }
+    };
+
+    const handleGameRestored = (data: any) => {
+      console.log('[Game] 🎮 Game restored!', data);
+      
+      // ✅ Set BOTH gameState and hand
+      setGameState(data.gameState);
+      setPlayerHand(data.yourHand || []);
+      
+      setShowReconnectModal(false);
+      setIsReconnecting(false);
+      
+      showNotification(data.message || 'Reconnected to game');
+    };
+
+    const handlePlayerReconnected = (data: any) => {
+      console.log('[Game] 👤 Player reconnected:', data.playerName);
+      showNotification(`${data.playerName} reconnected`);
+    };
+
     // Attach listeners
     socketService.onGameState(handleGameState);
+    socketService.socket.on('joined_room', handleJoinedRoom);
     socketService.onGameStarted(handleGameStarted);
     socketService.onHandUpdate(handleHandUpdate);
     socketService.onCardPlayed(handleCardPlayed);
     socketService.onGameOver(handleGameOver);
     socketService.onError(handleError);
+    socketService.socket.on('disconnect', handleDisconnect);
+    
+    socketService.onReconnectionResult(handleReconnectionResult);
+    socketService.onGameRestored(handleGameRestored);
+    socketService.onPlayerReconnected(handlePlayerReconnected);
 
-    // Listen for all events (debug)
-    socketService.socket.onAny((eventName, ...args) => {
-      console.log(`[Game] 📡 Event: ${eventName}`, args);
-    });
-
-       socketService.checkReconnection();
-    setIsReconnecting(true);
-    setShowReconnectModal(true);
-
-    // ✅ ADD: Handle reconnection result
-    socketService.onReconnectionResult((data) => {
-      setIsReconnecting(false);
-      
-      if (data.canReconnect) {
-        setCanReconnect(true);
-        setReconnectRoomId(data.roomId);
-      } else {
-        setCanReconnect(false);
-        setShowReconnectModal(false);
-      }
-    });
-
-    // ✅ ADD: Handle game restored
-    socketService.onGameRestored((data) => {
-      console.log('[Game] Game restored!', data);
-      setGameState(data.gameState);
-      setPlayerHand(data.yourHand);
-      setShowReconnectModal(false);
-      showNotification(data.message || 'Reconnected to game');
-    });
-
-    // ✅ ADD: Handle other player reconnected
-    socketService.onPlayerReconnected((data) => {
-      showNotification(`${data.playerName} reconnected`);
-    });
-
-
-    console.log('[Game] ✅ All listeners attached');
+    console.log('[Game] ✅ Game handlers attached');
 
     return () => {
-      console.log('[Game] 🧹 Cleaning up listeners');
-      socketService.off("game_state");
-      socketService.off("game_started");
-      socketService.off("hand_update");
-      socketService.off("card_played");
-      socketService.off("game_over");
-      socketService.off("error");
-       socketService.off('reconnection_result');
-      socketService.off('game_restored');
-      socketService.off('player_reconnected');
-      socketService.socket.offAny();
-
+      console.log('[Game] 🧹 Cleaning up game handlers');
+      socketService.socket.off('game_state');
+      socketService.socket.off('joined_room');
+      socketService.socket.off('game_started');
+      socketService.socket.off('hand_update');
+      socketService.socket.off('card_played');
+      socketService.socket.off('game_over');
+      socketService.socket.off('error');
+      socketService.socket.off('disconnect', handleDisconnect);
+      socketService.socket.off('reconnection_result');
+      socketService.socket.off('game_restored');
+      socketService.socket.off('player_reconnected');
     };
-
-    
-  }, [roomId, navigate, userId]);
+  }, [roomId, isSocketConnected, gameState]);
 
   const handleReconnect = () => {
     if (reconnectRoomId) {
+      console.log('[Game] 🔄 Reconnecting to:', reconnectRoomId);
       socketService.reconnectToGame(reconnectRoomId);
     }
   };
 
   const handleDismissReconnect = () => {
+    console.log('[Game] ❌ User dismissed reconnection');
     setShowReconnectModal(false);
+    setCanReconnect(false);
+    setIsReconnecting(false);
+    
+    // Clear cookie and go to lobby
+    roomCookies.clearCurrentRoom();
     navigate('/lobby');
   };
 
@@ -203,14 +268,12 @@ export default function Game() {
       setPendingCard(card);
       setShowColorPicker(true);
     } else {
-      console.log('[Game] 🎴 Playing card:', card.id);
       socketService.playCard(card.id);
     }
   };
 
   const handleColorSelect = (color: string) => {
     if (pendingCard) {
-      console.log('[Game] 🎨 Playing wild with color:', color);
       socketService.playCard(pendingCard.id, color);
     }
     setShowColorPicker(false);
@@ -222,16 +285,52 @@ export default function Game() {
       showNotification("It's not your turn!");
       return;
     }
-    console.log('[Game] 📥 Drawing card');
     socketService.drawCard();
   };
 
+  const handleLeaveRoom = () => {
+    console.log('[Game] 🚪 Leaving room');
+    roomCookies.clearCurrentRoom(); // ✅ Clear cookie
+    socketService.leaveRoom();
+    navigate('/lobby');
+  };
+
+  // Loading: Wait for socket
+  if (!isSocketConnected) {
+    return (
+      <div className="min-h-screen bg-dark-900 flex items-center justify-center">
+        <div className="text-center">
+          <div className="text-6xl mb-4 animate-bounce">🔌</div>
+          <p className="text-xl text-gray-400 mb-2">Connecting to server...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Show reconnection modal if checking
+  if (showReconnectModal) {
+    return (
+      <div className="min-h-screen bg-dark-900">
+        <Navigation />
+        <ReconnectionModal
+          isOpen={showReconnectModal}
+          isReconnecting={isReconnecting}
+          canReconnect={canReconnect}
+          onReconnect={handleReconnect}
+          onDismiss={handleDismissReconnect}
+        />
+      </div>
+    );
+  }
+
+  // Loading: Wait for game state
   if (!gameState) {
     return (
       <div className="min-h-screen bg-dark-900 flex items-center justify-center">
         <div className="text-center">
           <div className="text-6xl mb-4 animate-bounce">🎮</div>
-          <p className="text-xl text-gray-400">Loading game...</p>
+          <p className="text-xl text-gray-400 mb-2">Loading game...</p>
+          <p className="text-sm text-gray-500">Socket: {socketService.socket.id?.slice(0, 8)}</p>
         </div>
       </div>
     );
@@ -259,18 +358,9 @@ export default function Game() {
       <WaitingRoom
         roomId={roomId || ''}
         gameState={gameState}
-        onAddBot={() => {
-          console.log('[Game] 🤖 Adding bot...');
-          socketService.addBot();
-        }}
-        onStartGame={() => {
-          console.log('[Game] 🚀 Starting game...');
-          socketService.startGame();
-        }}
-        onLeave={() => {
-          socketService.leaveRoom();
-          navigate("/lobby");
-        }}
+        onAddBot={() => socketService.addBot()}
+        onStartGame={() => socketService.startGame()}
+        onLeave={handleLeaveRoom}
       />
     );
   }
@@ -280,14 +370,12 @@ export default function Game() {
     <div className="min-h-screen bg-dark-900 pb-4">
       <Navigation />
 
-      {/* Notification */}
       {notification && (
         <div className="fixed top-20 sm:top-24 left-1/2 transform -translate-x-1/2 z-50 bg-uno-blue text-white px-4 sm:px-6 py-2 sm:py-3 rounded-lg shadow-lg text-sm sm:text-base max-w-xs sm:max-w-md text-center">
           {notification}
         </div>
       )}
 
-      {/* Debug Panel */}
       <GameDebugPanel
         handCount={playerHand.length}
         userId={userId}
@@ -295,22 +383,12 @@ export default function Game() {
         onRequestHand={requestHand}
       />
 
-      {/* Header */}
       <GameHeader
         gameState={gameState}
         isMyTurn={isMyTurn}
         currentPlayerName={currentPlayer?.name}
       />
 
-       <ReconnectionModal
-        isOpen={showReconnectModal}
-        isReconnecting={isReconnecting}
-        canReconnect={canReconnect}
-        onReconnect={handleReconnect}
-        onDismiss={handleDismissReconnect}
-      />
-
-      {/* Game Table */}
       <div className="px-2 sm:px-4 max-w-7xl mx-auto">
         <div className="relative w-full" style={{ perspective: '2000px' }}>
           <div 
@@ -321,7 +399,6 @@ export default function Game() {
               boxShadow: '0 30px 60px rgba(0, 0, 0, 0.6), inset 0 2px 10px rgba(255, 255, 255, 0.1)'
             }}
           >
-            {/* Table Texture */}
             <div 
               className="absolute inset-0 rounded-2xl sm:rounded-[3rem] opacity-10"
               style={{
@@ -329,7 +406,6 @@ export default function Game() {
               }}
             />
 
-            {/* Opponents */}
             {otherPlayers.map((player, index) => (
               <OpponentHand
                 key={player.id}
@@ -339,14 +415,12 @@ export default function Game() {
               />
             ))}
 
-            {/* Center - Draw/Discard */}
             <GameTable
               gameState={gameState}
               isMyTurn={isMyTurn}
               onDrawCard={handleDraw}
             />
 
-            {/* Your Hand */}
             <PlayerHand
               playerName={myPlayer?.name || 'You'}
               playerHand={playerHand}
@@ -359,7 +433,6 @@ export default function Game() {
         </div>
       </div>
 
-      {/* Modals */}
       <ColorPickerModal
         isOpen={showColorPicker}
         onClose={() => setShowColorPicker(false)}
@@ -369,10 +442,7 @@ export default function Game() {
       <GameOverModal
         isOpen={showGameOver}
         winner={winner}
-        onClose={() => {
-          socketService.leaveRoom();
-          navigate("/lobby");
-        }}
+        onClose={handleLeaveRoom}
       />
     </div>
   );

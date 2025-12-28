@@ -15,13 +15,14 @@ export async function handleDrawCard(
 ) {
   try {
     const { userId, roomId, game } = await requireGameContext(socket, gameManager);
-
     requireTurn(game, userId);
     const player = requirePlayer(game, userId);
 
+    // ✅ Determine draw count
     const drawCount = game.pendingDraw > 0 ? game.pendingDraw : 1;
+    const wasForcedDraw = game.pendingDraw > 0;
 
-    console.log(`[DrawCard] ${player.name} drawing ${drawCount} card(s)`);
+    console.log(`[DrawCard] ${player.name} drawing ${drawCount} card(s)${wasForcedDraw ? ' (FORCED)' : ''}`);
 
     const drawnCards: Card[] = [];
     for (let i = 0; i < drawCount; i++) {
@@ -31,30 +32,28 @@ export async function handleDrawCard(
       }
     }
 
+    // ✅ Clear pending draw
     game.pendingDraw = 0;
 
     io.to(roomId).emit('cards_drawn', {
       playerId: userId,
-      count: drawnCards.length
+      count: drawnCards.length,
+      wasForced: wasForcedDraw
     });
 
     socket.emit('hand_update', { hand: player.hand });
 
+    // ✅ Advance turn (both normal and forced draws end turn)
     game.currentPlayer = getNextPlayer(game);
 
     io.to(roomId).emit('game_state', game.getPublicState());
-
     gameManager.resetGameTimer(roomId);
-
- 
     await gameManager.saveGame(roomId);
 
+    // Trigger next bot if needed
     const nextPlayer = game.players.find(p => p.id === game.currentPlayer);
     if (nextPlayer?.isBot) {
-      setTimeout(
-        () => processBotTurn(io, game, roomId, gameManager),
-        1500
-      );
+      setTimeout(() => processBotTurn(io, game, roomId, gameManager), 1500);
     }
 
   } catch (error) {

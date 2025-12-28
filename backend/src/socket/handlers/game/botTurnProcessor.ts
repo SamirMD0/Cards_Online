@@ -21,23 +21,17 @@ export async function processBotTurn(
   gameManager: GameStateManager
 ) {
   try {
-    // Guard: game over
     if (game.winner) return;
     
-    // Guard: current player is human
     const bot = game.players.find(p => p.id === game.currentPlayer);
     if (!bot || !bot.isBot) return;
     
     console.log(`[BotTurn] ${bot.name} taking turn...`);
     
-    // Get bot decision
-    const topCard = game.discardPile[game.discardPile.length - 1];
-    const move = getBotMove(bot.hand, topCard, game.currentColor);
-    
-    if (move.action === 'draw') {
-      // Bot draws cards
-      const drawCount = game.pendingDraw > 0 ? game.pendingDraw : 1;
-      console.log(`[BotTurn] ${bot.name} drawing ${drawCount} card(s)`);
+    // ✅ NEW: If there's a forced draw, bot MUST draw (no stacking)
+    if (game.pendingDraw > 0) {
+      const drawCount = game.pendingDraw;
+      console.log(`[BotTurn] ${bot.name} forced to draw ${drawCount} cards`);
       
       for (let i = 0; i < drawCount; i++) {
         game.drawCard(bot.id);
@@ -47,27 +41,52 @@ export async function processBotTurn(
       
       io.to(roomId).emit('cards_drawn', {
         playerId: bot.id,
-        count: drawCount
+        count: drawCount,
+        wasForced: true
+      });
+      
+      // ✅ Turn ends after forced draw
+      game.currentPlayer = getNextPlayer(game);
+      io.to(roomId).emit('game_state', game.getPublicState());
+      gameManager.resetGameTimer(roomId);
+      await gameManager.saveGame(roomId);
+      
+      // Chain next bot turn if needed
+      const nextPlayer = game.players.find(p => p.id === game.currentPlayer);
+      if (nextPlayer?.isBot) {
+        setTimeout(() => processBotTurn(io, game, roomId, gameManager), 1500);
+      }
+      return;
+    }
+    
+    // ✅ Normal bot logic (no forced draw)
+    const topCard = game.discardPile[game.discardPile.length - 1];
+    const move = getBotMove(bot.hand, topCard, game.currentColor);
+    
+    if (move.action === 'draw') {
+      console.log(`[BotTurn] ${bot.name} drawing 1 card (no valid play)`);
+      game.drawCard(bot.id);
+      
+      io.to(roomId).emit('cards_drawn', {
+        playerId: bot.id,
+        count: 1,
+        wasForced: false
       });
       
       game.currentPlayer = getNextPlayer(game);
       
     } else if (move.action === 'play') {
-      // Bot plays a card
       const card = move.card;
       const cardIndex = bot.hand.findIndex(c => c.id === card.id);
       
       if (cardIndex === -1) {
-        console.error(`[BotTurn] Card ${card.id} not found in ${bot.name}'s hand`);
+        console.error(`[BotTurn] Card not found in bot hand`);
         return;
       }
-      
-      console.log(`[BotTurn] ${bot.name} playing ${card.color} ${card.value}`);
       
       bot.hand.splice(cardIndex, 1);
       game.discardPile.push(card);
       
-      // Set color
       if (card.color === 'wild') {
         game.currentColor = move.chosenColor;
       } else {
@@ -80,37 +99,26 @@ export async function processBotTurn(
         chosenColor: game.currentColor
       });
       
-      // Check winner
       if (checkWinner(bot)) {
         game.winner = bot.id;
-        console.log(`[BotTurn] ${bot.name} wins!`);
-        
         io.to(roomId).emit('game_over', {
           winner: bot.name,
           winnerId: bot.id
         });
-        
-        return; // Game over
+        return;
       }
       
-      // Apply effects
       applyCardEffect(card, game);
       
-      // Advance turn
       if (!['skip', 'reverse'].includes(card.value as string)) {
         game.currentPlayer = getNextPlayer(game);
       }
     }
     
-    // Broadcast state
     io.to(roomId).emit('game_state', game.getPublicState());
-    
-    // Reset timer
     gameManager.resetGameTimer(roomId);
-
     await gameManager.saveGame(roomId);
     
-    // Chain bot turns if next player is also bot
     const nextPlayer = game.players.find(p => p.id === game.currentPlayer);
     if (nextPlayer?.isBot) {
       setTimeout(() => processBotTurn(io, game, roomId, gameManager), 1500);

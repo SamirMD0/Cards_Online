@@ -28,6 +28,38 @@ export function setupRoomHandlers(
   });
 
   /**
+   * ✅ NEW: Check if a room still exists (for cookie validation)
+   */
+
+  socket.on('check_room_exists', async (data: { roomId: string }) => {
+    try {
+      const { roomId } = data;
+      console.log(`[CheckRoom] Checking if room ${roomId} exists`);
+
+      const game = await gameManager.getGame(roomId);
+      const room = roomService.getRoom(roomId);
+
+      if (game && room) {
+        // Room exists
+        socket.emit('room_exists', {
+          exists: true,
+          roomId,
+          gameState: game.getPublicState()
+        });
+      } else {
+        // Room doesn't exist
+        socket.emit('room_exists', {
+          exists: false,
+          roomId
+        });
+      }
+    } catch (error) {
+      console.error('[CheckRoom] Error:', error);
+      socket.emit('room_exists', { exists: false, roomId: data.roomId });
+    }
+  });
+
+  /**
    * Create a new room
    */
   socket.on('create_room', async (data) => {
@@ -71,52 +103,101 @@ export function setupRoomHandlers(
    * Join an existing room
    */
   socket.on('join_room', async (data) => {
-    try {
-      const validated = validateJoinRoom(data);
-      const { roomId, playerName } = validated;
+  try {
+    const validated = validateJoinRoom(data);
+    const { roomId, playerName } = validated;
 
-      if (!socket.data.userId) {
-        throw new Error('User not authenticated');
-      }
+    if (!socket.data.userId) {
+      throw new Error('User not authenticated');
+    }
 
-      const userId = socket.data.userId;
-      const game = await gameManager.getGameOrThrow(roomId);
-      const room = roomService.getRoom(roomId);
+    const userId = socket.data.userId;
+    
+    console.log(`[JoinRoom] User ${userId} (${socket.data.username}) attempting to join ${roomId}`);
 
-      if (!room) {
-        socket.emit('error', { message: 'Room not found' });
-        return;
-      }
+    const game = await gameManager.getGameOrThrow(roomId);
+    const room = roomService.getRoom(roomId);
 
-      roomService.canJoinRoom(roomId, game.gameStarted, game.players.length);
+    if (!room) {
+      socket.emit('error', { message: 'Room not found' });
+      return;
+    }
 
-      // Add player using userId (stored in internal game state)
-      const added = game.addPlayer(userId, playerName);
-      if (!added) {
-        socket.emit('error', { message: 'Failed to join room' });
-        return;
-      }
-
-      // ✅ FIX: Track socket-to-room mapping explicitly
+    // ✅ CRITICAL: Check if player is already in the game FIRST
+    const existingPlayer = game.players.find(p => p.id === userId);
+    
+    if (existingPlayer) {
+      // ✅ RECONNECTION PATH
+      console.log(`[JoinRoom] ✅ RECONNECTION: ${existingPlayer.name} (${userId}) rejoining ${roomId}`);
+      
+      // Rejoin socket room
       socket.join(roomId);
       gameManager.setSocketRoom(socket.id, roomId);
       gameManager.resetGameTimer(roomId);
 
+      // Send success response
       socket.emit('joined_room', { roomId });
-      io.to(roomId).emit('game_state', game.getPublicState());
-      io.to(roomId).emit('player_joined', {
+
+      // Send current game state
+      const publicState = game.getPublicState();
+      socket.emit('game_state', publicState);
+
+      // ✅ If game started, send their hand
+      if (game.gameStarted && existingPlayer.hand) {
+        console.log(`[JoinRoom] Sending ${existingPlayer.hand.length} cards to reconnecting player`);
+        socket.emit('hand_update', { hand: existingPlayer.hand });
+      }
+
+      // Notify others
+      socket.to(roomId).emit('player_reconnected', {
         playerId: userId,
-        playerName
+        playerName: existingPlayer.name
       });
 
+      // Persist updated socket mapping
+      await gameManager.saveGame(roomId);
       await broadcastRoomsList(io, roomService, gameManager);
 
-      console.log(`[RoomHandlers] ${playerName} (userId: ${userId}) joined room ${roomId}`);
-
-    } catch (error) {
-      emitError(socket, error);
+      console.log(`[JoinRoom] ✅ Reconnection complete for ${existingPlayer.name}`);
+      return; // ✅ Exit early
     }
-  });
+
+    // ✅ NEW PLAYER PATH: Validate join
+    console.log(`[JoinRoom] New player ${userId} joining ${roomId}`);
+    roomService.canJoinRoom(roomId, game.gameStarted, game.players.length);
+
+    // Add player
+    const added = game.addPlayer(userId, playerName);
+    if (!added) {
+      socket.emit('error', { message: 'Failed to join room' });
+      return;
+    }
+
+    // Track socket-to-room mapping
+    socket.join(roomId);
+    gameManager.setSocketRoom(socket.id, roomId);
+    gameManager.resetGameTimer(roomId);
+
+    // ✅ CRITICAL: Persist immediately after adding player
+    await gameManager.saveGame(roomId);
+
+    socket.emit('joined_room', { roomId });
+    io.to(roomId).emit('game_state', game.getPublicState());
+    io.to(roomId).emit('player_joined', {
+      playerId: userId,
+      playerName
+    });
+
+    await broadcastRoomsList(io, roomService, gameManager);
+
+    console.log(`[JoinRoom] ✅ ${playerName} (${userId}) joined room ${roomId}`);
+
+  } catch (error) {
+    console.error('[JoinRoom] Error:', error);
+    emitError(socket, error);
+  }
+});
+  
 
   /**
    * Leave current room

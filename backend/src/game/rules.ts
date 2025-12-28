@@ -25,7 +25,7 @@ export function applyCardEffect(card: Card, gameState: GameState): void {
 
   switch (valueStr) {
     case 'skip':
-      // Skip next player
+      // Skip next player (advance by 2 positions)
       gameState.currentPlayer = getNextPlayer(gameState, 1);
       break;
 
@@ -40,21 +40,26 @@ export function applyCardEffect(card: Card, gameState: GameState): void {
       break;
 
     case 'draw2':
-      // Next player must draw 2
-      gameState.pendingDraw = (gameState.pendingDraw || 0) + 2;
+      // ✅ NEW: Next player must draw 2 AND loses turn
+      gameState.pendingDraw = 2; // Set exactly 2 (no stacking)
+      // Turn advances to victim, they'll auto-draw in botTurnProcessor or be forced in handler
       break;
 
     case 'wild_draw4':
-      // Next player must draw 4
-      gameState.pendingDraw = (gameState.pendingDraw || 0) + 4;
+      // ✅ NEW: Next player must draw 4 AND loses turn  
+      gameState.pendingDraw = 4; // Set exactly 4 (no stacking)
+      break;
+
+    case 'wild':
+      // ✅ Regular wild: ONLY changes color, no draw, no skip
+      // Color is set in playCardHandler, nothing to do here
       break;
 
     default:
-      // No effect for number cards or regular wild
+      // No effect for number cards
       break;
   }
 }
-
 export function getNextPlayer(gameState: GameState, skip: number = 0): string {
   const { players, currentPlayer, direction } = gameState;
   

@@ -21,6 +21,7 @@ export type Socket = IOSocket<
 // Client → Server events
 export interface ClientToServerEvents {
   get_rooms: () => void;
+  check_room_exists: (data: { roomId: string }) => void;
   create_room: (data: { roomName: string; maxPlayers: number }) => void;
   join_room: (data: { roomId: string; playerName: string }) => void;
   leave_room: () => void;
@@ -36,6 +37,7 @@ export interface ClientToServerEvents {
 // Server → Client events
 export interface ServerToClientEvents {
   rooms_list: (rooms: any[]) => void;
+  room_exists: (data: { exists: boolean; roomId: string; gameState?: any }) => void;
   room_created: (data: { roomId: string; roomCode: string }) => void;
   joined_room: (data: { roomId: string }) => void;
   game_state: (state: any) => void;

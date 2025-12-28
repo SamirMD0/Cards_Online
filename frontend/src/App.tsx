@@ -1,3 +1,8 @@
+// =====================================================
+// FILE: frontend/src/App.tsx
+// FIX: Suppress React Router v7 upgrade warnings
+// =====================================================
+
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
 import ProtectedRoute from './components/ProtectedRoute';
@@ -6,12 +11,17 @@ import Register from './pages/Register';
 import Home from './pages/Home';
 import Lobby from './pages/Lobby';
 import Game from './pages/Game';
-import Friends from './pages/Friends'; // ADD THIS
+import Friends from './pages/Friends';
 
 function App() {
   return (
     <AuthProvider>
-      <Router>
+      <Router
+        future={{
+          v7_startTransition: true,
+          v7_relativeSplatPath: true,
+        }}
+      >
         <Routes>
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
@@ -28,7 +38,6 @@ function App() {
             </ProtectedRoute>
           } />
           
-          {/* ADD THIS ROUTE */}
           <Route path="/friends" element={
             <ProtectedRoute>
               <Friends />

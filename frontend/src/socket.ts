@@ -170,6 +170,14 @@ onPlayerReconnected(callback: (data: any) => void) {
   this.socket.on('player_reconnected', callback);
 }
 
+checkRoomExists(roomId: string) {
+    this.socket.emit('check_room_exists', { roomId });
+  }
+
+  onRoomExists(callback: (data: any) => void) {
+    this.socket.on('room_exists', callback);
+  }
+  
 }
 
 export const socketService = new SocketService();

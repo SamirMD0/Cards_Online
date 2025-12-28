@@ -18,40 +18,50 @@ export function setupReconnectionHandler(
   gameManager: GameStateManager
 ) {
   
-  /**
-   * Check if user can reconnect to a game
-   */
   socket.on('check_reconnection', async () => {
     try {
       const userId = socket.data.userId;
+      const username = socket.data.username;
+      
       if (!userId) {
+        console.log(`[ReconnectionCheck] No userId on socket, cannot check`);
         socket.emit('reconnection_result', { canReconnect: false });
         return;
       }
 
-      console.log(`[Reconnection] Checking reconnection for user ${userId}`);
+      console.log(`[ReconnectionCheck] Checking for user ${username} (${userId})`);
 
-      // Find if user was in a game
+      // Find room in Redis
       const roomId = await gameManager.findRoomByUserId(userId);
       
       if (!roomId) {
-        console.log(`[Reconnection] No active game found for user ${userId}`);
+        console.log(`[ReconnectionCheck] No active room found for ${username} (${userId})`);
         socket.emit('reconnection_result', { canReconnect: false });
         return;
       }
 
-      // Load game from Redis
+      console.log(`[ReconnectionCheck] Found room ${roomId} for ${username}`);
+
+      // Load game
       const game = await gameManager.getGame(roomId);
       
       if (!game) {
-        console.log(`[Reconnection] Game ${roomId} no longer exists`);
+        console.log(`[ReconnectionCheck] Room ${roomId} no longer exists`);
         socket.emit('reconnection_result', { canReconnect: false });
         return;
       }
 
-      // Check if game is still active (not finished)
+      // Verify player is still in game
+      const player = game.players.find(p => p.id === userId);
+      if (!player) {
+        console.log(`[ReconnectionCheck] User ${userId} not in game ${roomId}`);
+        socket.emit('reconnection_result', { canReconnect: false });
+        return;
+      }
+
+      // Check if game ended
       if (game.winner) {
-        console.log(`[Reconnection] Game ${roomId} already finished`);
+        console.log(`[ReconnectionCheck] Game ${roomId} already finished`);
         socket.emit('reconnection_result', { 
           canReconnect: false,
           reason: 'Game has ended' 
@@ -59,15 +69,7 @@ export function setupReconnectionHandler(
         return;
       }
 
-      // Check if player is still in the game
-      const player = game.players.find(p => p.id === userId);
-      if (!player) {
-        console.log(`[Reconnection] User ${userId} not in game ${roomId}`);
-        socket.emit('reconnection_result', { canReconnect: false });
-        return;
-      }
-
-      console.log(`[Reconnection] User ${userId} can reconnect to game ${roomId}`);
+      console.log(`[ReconnectionCheck] ✅ ${username} CAN reconnect to ${roomId}`);
       
       socket.emit('reconnection_result', {
         canReconnect: true,
@@ -76,49 +78,44 @@ export function setupReconnectionHandler(
       });
 
     } catch (error) {
-      console.error('[Reconnection] Check failed:', error);
+      console.error('[ReconnectionCheck] Error:', error);
       socket.emit('reconnection_result', { canReconnect: false });
     }
   });
 
-  /**
-   * Reconnect to an active game
-   */
   socket.on('reconnect_to_game', async (data: { roomId: string }) => {
     try {
       const userId = socket.data.userId;
+      const username = socket.data.username;
+      
       if (!userId) {
         throw new Error('Authentication required');
       }
 
       const { roomId } = data;
+      console.log(`[ReconnectToGame] ${username} (${userId}) reconnecting to ${roomId}`);
 
-      console.log(`[Reconnection] User ${userId} reconnecting to ${roomId}`);
-
-      // Load game
       const game = await gameManager.getGame(roomId);
       if (!game) {
         throw new Error('Game not found');
       }
 
-      // Verify player is in the game
       const player = game.players.find(p => p.id === userId);
       if (!player) {
         throw new Error('You are not in this game');
       }
 
-      // Verify game is still active
       if (game.winner) {
         throw new Error('Game has already ended');
       }
 
-      // Rejoin socket room
+      // Rejoin
       socket.join(roomId);
       gameManager.setSocketRoom(socket.id, roomId);
 
-      console.log(`[Reconnection] User ${userId} reconnected to ${roomId}`);
+      console.log(`[ReconnectToGame] ✅ ${username} reconnected to ${roomId}`);
 
-      // Send game state
+      // Send state
       socket.emit('game_restored', {
         roomId,
         gameState: game.getPublicState(),
@@ -126,17 +123,15 @@ export function setupReconnectionHandler(
         message: 'Welcome back! Reconnected to game.'
       });
 
-      // Notify other players
       socket.to(roomId).emit('player_reconnected', {
         playerId: userId,
         playerName: player.name
       });
 
-      // Reset game timer
       gameManager.resetGameTimer(roomId);
 
     } catch (error) {
-      console.error('[Reconnection] Reconnect failed:', error);
+      console.error('[ReconnectToGame] Error:', error);
       emitError(socket, error);
     }
   });

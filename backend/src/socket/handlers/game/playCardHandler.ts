@@ -16,15 +16,11 @@ export async function handlePlayCard(
   data: any
 ) {
   try {
-    // Validate input schema
     const validated = validatePlayCard(data);
-    
-    // Validate game context
     const { userId, roomId, game } = await requireGameContext(socket, gameManager);
     requireTurn(game, userId);
     const player = requirePlayer(game, userId);
     
-    // Find card in hand
     const cardIndex = player.hand.findIndex(c => c.id === validated.cardId);
     if (cardIndex === -1) {
       throw new Error('Card not found in your hand');
@@ -33,17 +29,14 @@ export async function handlePlayCard(
     const card = player.hand[cardIndex];
     const topCard = game.discardPile[game.discardPile.length - 1];
     
+    // ✅ NEW: If there's a pending draw, you MUST draw (no stacking)
+    if (game.pendingDraw > 0) {
+      throw new Error(`You must draw ${game.pendingDraw} cards first!`);
+    }
+    
     // Validate card can be played
     if (!canPlayCard(card, topCard, game.currentColor)) {
       throw new Error('This card cannot be played on the current card');
-    }
-    
-    // Special case: pending draw forces draw cards only
-    if (game.pendingDraw > 0) {
-      const isDrawCard = card.value === 'draw2' || card.value === 'wild_draw4';
-      if (!isDrawCard) {
-        throw new Error(`You must draw ${game.pendingDraw} cards or play a Draw 2/Draw 4`);
-      }
     }
     
     // Wild cards require color choice
@@ -62,49 +55,51 @@ export async function handlePlayCard(
       game.currentColor = card.color;
     }
     
-    console.log(`[PlayCard] ${player.name} played ${card.color} ${card.value}, hand: ${player.hand.length} cards`);
+    console.log(`[PlayCard] ${player.name} played ${card.color} ${card.value}`);
     
-    // Send updated hand to player
     socket.emit('hand_update', { hand: player.hand });
     
-    // Broadcast card played
     io.to(roomId).emit('card_played', {
       playerId: userId,
       card,
       chosenColor: game.currentColor
     });
 
-    // ✅ ADD THIS after emitting card_played
-     await gameManager.saveGame(roomId);
+    await gameManager.saveGame(roomId);
     
-    // Check for winner
+    // Check winner
     if (checkWinner(player)) {
       game.winner = userId;
-      console.log(`[PlayCard] ${player.name} wins!`);
-      
       io.to(roomId).emit('game_over', {
         winner: player.name,
         winnerId: userId
       });
-      
-      return; // Game over, don't continue
+      return;
     }
     
-    // Apply card effects (skip, reverse, draw2, draw4)
+    // ✅ NEW: Apply effects FIRST (may set pendingDraw)
     applyCardEffect(card, game);
     
-    // Advance turn (unless skip/reverse already moved it)
+    // ✅ NEW: Advance turn UNLESS skip/reverse already handled it
     if (!['skip', 'reverse'].includes(card.value as string)) {
       game.currentPlayer = getNextPlayer(game);
     }
     
-    // Broadcast state
     io.to(roomId).emit('game_state', game.getPublicState());
-    
-    // Reset timer
     gameManager.resetGameTimer(roomId);
     
-    // Trigger bot turn if next player is bot
+    // ✅ NEW: If next player is human with pendingDraw, notify them
+    if (game.pendingDraw > 0) {
+      const nextPlayer = game.players.find(p => p.id === game.currentPlayer);
+      if (nextPlayer) {
+        io.to(roomId).emit('forced_draw_pending', {
+          playerId: nextPlayer.id,
+          drawCount: game.pendingDraw
+        });
+      }
+    }
+    
+    // Trigger bot turn if needed
     const nextPlayer = game.players.find(p => p.id === game.currentPlayer);
     if (nextPlayer?.isBot) {
       setTimeout(() => processBotTurn(io, game, roomId, gameManager), 1500);
