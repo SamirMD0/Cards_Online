@@ -5,6 +5,7 @@ import { GameStateManager } from '../../../managers/GameStateManager.js';
 import { emitError } from '../../../utils/errors.js';
 import { requireGameContext } from './validators.js';
 import { processBotTurn } from './botTurnProcessor.js';
+import { TurnTimerManager } from '../../../managers/TurnTimerManager.js';
 
 export async function handleStartGame(
   io: Server,
@@ -28,9 +29,6 @@ export async function handleStartGame(
       throw new Error('Failed to start game');
     }
     
-    console.log(`[StartGame] Game started in room ${roomId}`);
-    
-    // ✅ CRITICAL: Save game immediately after starting
     await gameManager.saveGame(roomId);
     
     io.to(roomId).emit('game_started', game.getPublicState());
@@ -51,6 +49,10 @@ export async function handleStartGame(
     });
     
     gameManager.resetGameTimer(roomId);
+    
+    // ✅ NEW: Start turn timer
+    const timerManager = TurnTimerManager.getInstance();
+    timerManager.startTimer(io, roomId, gameManager);
     
     // Trigger bot if first player is bot
     const firstPlayer = game.players.find(p => p.id === game.currentPlayer);

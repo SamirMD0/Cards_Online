@@ -7,6 +7,7 @@ import { emitError } from '../../../utils/errors.js';
 import { requireGameContext, requireTurn, requirePlayer } from './validators.js';
 import { processBotTurn } from './botTurnProcessor.js';
 import { Card } from '../../../types/game.types.js';
+import { TurnTimerManager } from '../../../managers/TurnTimerManager.js';
 
 export async function handleDrawCard(
   io: Server,
@@ -49,6 +50,9 @@ export async function handleDrawCard(
     io.to(roomId).emit('game_state', game.getPublicState());
     gameManager.resetGameTimer(roomId);
     await gameManager.saveGame(roomId);
+
+    const timerManager = TurnTimerManager.getInstance();
+    await timerManager.resetTimer(io, roomId, gameManager);
 
     // Trigger next bot if needed
     const nextPlayer = game.players.find(p => p.id === game.currentPlayer);

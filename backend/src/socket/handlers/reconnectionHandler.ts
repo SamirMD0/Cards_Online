@@ -83,56 +83,66 @@ export function setupReconnectionHandler(
     }
   });
 
-  socket.on('reconnect_to_game', async (data: { roomId: string }) => {
-    try {
-      const userId = socket.data.userId;
-      const username = socket.data.username;
-      
-      if (!userId) {
-        throw new Error('Authentication required');
-      }
-
-      const { roomId } = data;
-      console.log(`[ReconnectToGame] ${username} (${userId}) reconnecting to ${roomId}`);
-
-      const game = await gameManager.getGame(roomId);
-      if (!game) {
-        throw new Error('Game not found');
-      }
-
-      const player = game.players.find(p => p.id === userId);
-      if (!player) {
-        throw new Error('You are not in this game');
-      }
-
-      if (game.winner) {
-        throw new Error('Game has already ended');
-      }
-
-      // Rejoin
-      socket.join(roomId);
-      gameManager.setSocketRoom(socket.id, roomId);
-
-      console.log(`[ReconnectToGame] ✅ ${username} reconnected to ${roomId}`);
-
-      // Send state
-      socket.emit('game_restored', {
-        roomId,
-        gameState: game.getPublicState(),
-        yourHand: player.hand,
-        message: 'Welcome back! Reconnected to game.'
-      });
-
-      socket.to(roomId).emit('player_reconnected', {
-        playerId: userId,
-        playerName: player.name
-      });
-
-      gameManager.resetGameTimer(roomId);
-
-    } catch (error) {
-      console.error('[ReconnectToGame] Error:', error);
-      emitError(socket, error);
+ socket.on('reconnect_to_game', async (data: { roomId: string }) => {
+  try {
+    const userId = socket.data.userId;
+    const username = socket.data.username;
+    
+    if (!userId) {
+      throw new Error('Authentication required');
     }
-  });
+
+    const { roomId } = data;
+    console.log(`[ReconnectToGame] ${username} (${userId}) reconnecting to ${roomId}`);
+
+    const game = await gameManager.getGame(roomId);
+    if (!game) {
+      throw new Error('Game not found');
+    }
+
+    const player = game.players.find(p => p.id === userId);
+    if (!player) {
+      throw new Error('You are not in this game');
+    }
+
+    if (game.winner) {
+      throw new Error('Game has already ended');
+    }
+
+    // ✅ FIX: Ensure socket is in room (might not be if reconnecting)
+    const isInRoom = Array.from(socket.rooms).includes(roomId);
+    if (!isInRoom) {
+      socket.join(roomId);
+      console.log(`[ReconnectToGame] Socket ${socket.id} joined room ${roomId}`);
+    }
+    
+    // ✅ FIX: Update socket mapping
+    gameManager.setSocketRoom(socket.id, roomId);
+    gameManager.resetGameTimer(roomId);
+
+    console.log(`[ReconnectToGame] ✅ ${username} reconnected to ${roomId}`);
+
+    // Send state - use game_restored to indicate successful reconnection
+    socket.emit('game_restored', {
+      roomId,
+      gameState: game.getPublicState(),
+      yourHand: player.hand,
+      message: 'Welcome back! Reconnected to game.'
+    });
+
+    // Notify others
+    socket.to(roomId).emit('player_reconnected', {
+      playerId: userId,
+      playerName: player.name
+    });
+
+  } catch (error) {
+    console.error('[ReconnectToGame] Error:', error);
+    
+    // ✅ FIX: Send failure response instead of generic error
+    socket.emit('reconnection_failed', { 
+      message: error instanceof Error ? error.message : 'Reconnection failed'
+    });
+  }
+});
 }

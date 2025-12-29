@@ -2,6 +2,7 @@
 import { Server } from 'socket.io';
 import { GameState } from '../../../game/gameState.js';
 import { GameStateManager } from '../../../managers/GameStateManager.js';
+import { TurnTimerManager } from '../../../managers/TurnTimerManager.js';
 import { getBotMove } from '../../../bot/simpleBot.js';
 import { applyCardEffect, getNextPlayer, checkWinner } from '../../../game/rules.js';
 
@@ -58,6 +59,8 @@ export async function processBotTurn(
       }
       return;
     }
+
+    
     
     // ✅ Normal bot logic (no forced draw)
     const topCard = game.discardPile[game.discardPile.length - 1];
@@ -118,8 +121,14 @@ export async function processBotTurn(
     io.to(roomId).emit('game_state', game.getPublicState());
     gameManager.resetGameTimer(roomId);
     await gameManager.saveGame(roomId);
-    
+
+    // ✅ NEW: Start timer for next player (if human)
     const nextPlayer = game.players.find(p => p.id === game.currentPlayer);
+    if (nextPlayer && !nextPlayer.isBot) {
+      const timerManager = TurnTimerManager.getInstance();
+      await timerManager.startTimer(io, roomId, gameManager);
+    }
+
     if (nextPlayer?.isBot) {
       setTimeout(() => processBotTurn(io, game, roomId, gameManager), 1500);
     }

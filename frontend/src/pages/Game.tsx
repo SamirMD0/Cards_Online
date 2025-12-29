@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useParams, useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import Navigation from "../components/Navigation";
@@ -12,8 +12,10 @@ import GameOverModal from "../components/game/GameOverModal";
 import WaitingRoom from "../components/game/WaitingRoom";
 import { socketService } from "../socket";
 import type { GameState, Card } from "../types";
-import ReconnectionModal from '../components/ReconnectionModal';
-import { roomCookies } from '../utils/roomCookies';
+import ReconnectionModal from "../components/ReconnectionModal";
+import { roomCookies } from "../utils/roomCookies";
+
+// frontend/src/pages/Game.tsx
 
 export default function Game() {
   const { roomId } = useParams<{ roomId: string }>();
@@ -33,102 +35,59 @@ export default function Game() {
   const [isReconnecting, setIsReconnecting] = useState(false);
   const [canReconnect, setCanReconnect] = useState(false);
   const [reconnectRoomId, setReconnectRoomId] = useState<string | null>(null);
-  
-  const [isSocketConnected, setIsSocketConnected] = useState(false);
 
+  const [turnTimeRemaining, setTurnTimeRemaining] = useState<number>(30000);
   const userId = user?.id || null;
   const isMyTurn = gameState?.currentPlayer === userId;
-
-  // ✅ NEW: Check if this is a reconnection attempt (from Lobby rejoin button)
+  const hasJoinedRef = useRef(false);
   const isReconnectAttempt = location.state?.reconnect === true;
 
+  const showNotification = (message: string) => {
+    setNotification(message);
+    setTimeout(() => setNotification(""), 3000);
+  };
+
   const requestHand = () => {
-    console.log('[Game] 🔄 Requesting hand...');
     socketService.socket.emit('request_hand');
   };
 
-  useEffect(() => {
+   useEffect(() => {
     if (!roomId || !userId) {
       navigate("/lobby");
       return;
     }
 
     console.log('[Game] 🎬 Component mounted');
-    console.log('[Game] User ID:', userId);
-    console.log('[Game] Room ID:', roomId);
-    console.log('[Game] Is Reconnect Attempt:', isReconnectAttempt);
 
-    // Ensure socket is connected
     if (!socketService.socket.connected) {
-      console.log('[Game] 🔌 Connecting socket...');
       socketService.connect();
-    } else {
-      console.log('[Game] ✅ Socket already connected:', socketService.socket.id);
-      setIsSocketConnected(true);
     }
 
-    const handleConnect = () => {
-      console.log('[Game] ✅ Socket connected:', socketService.socket.id);
-      setIsSocketConnected(true);
-      
-      // ✅ ONLY check reconnection if explicitly flagged as reconnect attempt
-      if (isReconnectAttempt) {
-        console.log('[Game] 🔍 This is a reconnection attempt, checking...');
-        setShowReconnectModal(true);
-        setIsReconnecting(true);
-        socketService.checkReconnection();
-      } else {
-        console.log('[Game] ℹ️ Fresh join, skipping reconnection check');
-      }
-    };
+    let stateRequestTimeout: NodeJS.Timeout | null = null;
 
-    socketService.socket.on('connect', handleConnect);
-
-    // If already connected, trigger check if needed
-    if (socketService.socket.connected && isReconnectAttempt) {
-      console.log('[Game] 🔍 Socket already connected, checking reconnection...');
-      setShowReconnectModal(true);
-      setIsReconnecting(true);
-      socketService.checkReconnection();
-    }
-
-    return () => {
-      socketService.socket.off('connect', handleConnect);
-    };
-  }, [roomId, userId, navigate, isReconnectAttempt]);
-
-  // Main game logic
-  useEffect(() => {
-    if (!roomId || !isSocketConnected) return;
-
-    console.log('[Game] 🎮 Setting up game handlers');
+    // ========================================
+    // EVENT HANDLERS
+    // ========================================
 
     const handleGameState = (state: GameState) => {
-      console.log('[Game] 📊 Game state received');
+      console.log('[Game] ✅ Game state received');
       setGameState(state);
-      setIsReconnecting(false);
-      setShowReconnectModal(false);
-    };
-
-    const handleJoinedRoom = (data: { roomId: string }) => {
-      console.log('[Game] ✅ Successfully joined room:', data.roomId);
-      setIsReconnecting(false);
-      setShowReconnectModal(false);
+      
+      if (stateRequestTimeout) {
+        clearTimeout(stateRequestTimeout);
+        stateRequestTimeout = null;
+      }
     };
 
     const handleGameStarted = (state: GameState) => {
       console.log('[Game] 🎮 Game started');
       setGameState(state);
       showNotification("Game started! 🎮");
-      
-      setTimeout(() => {
-        console.log('[Game] ⏰ Auto-requesting hand...');
-        requestHand();
-      }, 500);
+      setTimeout(() => requestHand(), 500);
     };
 
     const handleHandUpdate = (data: { hand: Card[] }) => {
-      console.log('[Game] ✅ HAND UPDATE:', data.hand.length, 'cards');
+      console.log('[Game] ✅ Hand update:', data.hand.length, 'cards');
       setPlayerHand(data.hand);
     };
 
@@ -143,88 +102,149 @@ export default function Game() {
       console.log('[Game] 🏆 Game over:', data);
       setWinner(data.winner);
       setShowGameOver(true);
-      
-      // ✅ Clear cookie when game ends
       roomCookies.clearCurrentRoom();
     };
 
-    const handleError = (error: { message: string }) => {
+    const handleError = (error: { message: string; shouldReconnect?: boolean }) => {
       console.error('[Game] ❌ Error:', error);
+      
+      // ✅ FIX: If error says we should reconnect, do it
+      if (error.shouldReconnect) {
+        console.log('[Game] 🔄 Switching to reconnection mode...');
+        socketService.reconnectToGame(roomId);
+        return;
+      }
+
       showNotification(error.message);
     };
 
-    const handleDisconnect = () => {
-      console.log('[Game] 🔌 Disconnected from server');
-      setIsSocketConnected(false);
-      
-      // ✅ When disconnected, flag for reconnection check on reconnect
-      console.log('[Game] Will check reconnection when socket reconnects');
-    };
-
-    const handleReconnectionResult = (data: any) => {
-      console.log('[Game] 🔄 Reconnection check result:', data);
-      setIsReconnecting(false);
-      
-      if (data.canReconnect && data.roomId) {
-        console.log('[Game] ✅ Can reconnect to room:', data.roomId);
-        setCanReconnect(true);
-        setReconnectRoomId(data.roomId);
-      } else {
-        console.log('[Game] ❌ No game to reconnect to');
-        setCanReconnect(false);
-        setShowReconnectModal(false);
-      }
+    const handleShouldReconnect = (data: { roomId: string }) => {
+      console.log('[Game] 🔄 Server says we should reconnect');
+      socketService.reconnectToGame(data.roomId);
     };
 
     const handleGameRestored = (data: any) => {
-      console.log('[Game] 🎮 Game restored!', data);
-      
-      // ✅ Set BOTH gameState and hand
+      console.log('[Game] 🎮 Game restored!');
       setGameState(data.gameState);
       setPlayerHand(data.yourHand || []);
-      
-      setShowReconnectModal(false);
-      setIsReconnecting(false);
-      
-      showNotification(data.message || 'Reconnected to game');
+      showNotification(data.message || 'Reconnected successfully');
+    };
+
+    const handleReconnectionFailed = (data: any) => {
+      console.log('[Game] ❌ Reconnection failed:', data.message);
+      showNotification('Reconnection failed. Returning to lobby...');
+      roomCookies.clearCurrentRoom();
+      setTimeout(() => navigate('/lobby'), 2000);
     };
 
     const handlePlayerReconnected = (data: any) => {
-      console.log('[Game] 👤 Player reconnected:', data.playerName);
       showNotification(`${data.playerName} reconnected`);
     };
 
-    // Attach listeners
-    socketService.onGameState(handleGameState);
-    socketService.socket.on('joined_room', handleJoinedRoom);
-    socketService.onGameStarted(handleGameStarted);
-    socketService.onHandUpdate(handleHandUpdate);
-    socketService.onCardPlayed(handleCardPlayed);
-    socketService.onGameOver(handleGameOver);
-    socketService.onError(handleError);
-    socketService.socket.on('disconnect', handleDisconnect);
-    
-    socketService.onReconnectionResult(handleReconnectionResult);
-    socketService.onGameRestored(handleGameRestored);
-    socketService.onPlayerReconnected(handlePlayerReconnected);
-
-    console.log('[Game] ✅ Game handlers attached');
-
-    return () => {
-      console.log('[Game] 🧹 Cleaning up game handlers');
-      socketService.socket.off('game_state');
-      socketService.socket.off('joined_room');
-      socketService.socket.off('game_started');
-      socketService.socket.off('hand_update');
-      socketService.socket.off('card_played');
-      socketService.socket.off('game_over');
-      socketService.socket.off('error');
-      socketService.socket.off('disconnect', handleDisconnect);
-      socketService.socket.off('reconnection_result');
-      socketService.socket.off('game_restored');
-      socketService.socket.off('player_reconnected');
+    const handleTurnTimerStarted = (data: { duration: number; startTime: number }) => {
+      const elapsed = Date.now() - data.startTime;
+      setTurnTimeRemaining(data.duration - elapsed);
     };
-  }, [roomId, isSocketConnected, gameState]);
+
+    const handleTurnTimeout = (data: { playerId: string; playerName: string }) => {
+      showNotification(`⏱️ ${data.playerName}'s turn timed out!`);
+    };
+
+    const handleRoomClosing = (data: { message: string }) => {
+      showNotification(data.message);
+      roomCookies.clearCurrentRoom();
+      setTimeout(() => navigate('/lobby'), 3000);
+    };
+
+    // ========================================
+    // ATTACH LISTENERS
+    // ========================================
+
+    socketService.socket.on('game_state', handleGameState);
+    socketService.socket.on('game_started', handleGameStarted);
+    socketService.socket.on('hand_update', handleHandUpdate);
+    socketService.socket.on('card_played', handleCardPlayed);
+    socketService.socket.on('game_over', handleGameOver);
+    socketService.socket.on('error', handleError);
+    socketService.socket.on('should_reconnect', handleShouldReconnect);
+    socketService.socket.on('game_restored', handleGameRestored);
+    socketService.socket.on('reconnection_failed', handleReconnectionFailed);
+    socketService.socket.on('player_reconnected', handlePlayerReconnected);
+    socketService.socket.on('turn_timer_started', handleTurnTimerStarted);
+    socketService.socket.on('turn_timeout', handleTurnTimeout);
+    socketService.socket.on('room_closing', handleRoomClosing);
+
+    // ========================================
+    // JOIN OR RECONNECT DECISION
+    // ========================================
+
+    // ✅ FIX: Prevent duplicate actions in StrictMode
+    if (hasJoinedRef.current) {
+      console.log('[Game] Already joined/reconnected, skipping');
+      return;
+    }
+    hasJoinedRef.current = true;
+
+    const cookie = roomCookies.getCurrentRoom();
+    const hasActiveCookie = cookie && cookie.roomId === roomId;
+
+    if (isReconnectAttempt || hasActiveCookie) {
+      // ✅ RECONNECTION PATH
+      console.log('[Game] 🔄 Attempting reconnection to', roomId);
+      socketService.reconnectToGame(roomId);
+      
+      // ✅ Fallback: Request state if no response
+      stateRequestTimeout = setTimeout(() => {
+        if (!gameState) {
+          console.log('[Game] ⏱️ No response, requesting state...');
+          socketService.socket.emit('request_game_state', { roomId });
+        }
+      }, 3000);
+      
+    } else {
+      // ✅ FRESH JOIN PATH (should not happen - lobby handles joining)
+      console.log('[Game] ⚠️ Fresh navigation without join - requesting state');
+      socketService.socket.emit('request_game_state', { roomId });
+      
+      stateRequestTimeout = setTimeout(() => {
+        if (!gameState) {
+          console.error('[Game] ❌ No game state - returning to lobby');
+          showNotification('Failed to load game');
+          setTimeout(() => navigate('/lobby'), 2000);
+        }
+      }, 5000);
+    }
+
+    // ========================================
+    // CLEANUP
+    // ========================================
+    return () => {
+      if (stateRequestTimeout) {
+        clearTimeout(stateRequestTimeout);
+      }
+      
+      socketService.socket.off('game_state', handleGameState);
+      socketService.socket.off('game_started', handleGameStarted);
+      socketService.socket.off('hand_update', handleHandUpdate);
+      socketService.socket.off('card_played', handleCardPlayed);
+      socketService.socket.off('game_over', handleGameOver);
+      socketService.socket.off('error', handleError);
+      socketService.socket.off('should_reconnect', handleShouldReconnect);
+      socketService.socket.off('game_restored', handleGameRestored);
+      socketService.socket.off('reconnection_failed', handleReconnectionFailed);
+      socketService.socket.off('player_reconnected', handlePlayerReconnected);
+      socketService.socket.off('turn_timer_started', handleTurnTimerStarted);
+      socketService.socket.off('turn_timeout', handleTurnTimeout);
+      socketService.socket.off('room_closing', handleRoomClosing);
+      
+      // ✅ Reset ref on unmount
+      hasJoinedRef.current = false;
+    };
+  }, [roomId, userId, navigate]);
+
+  // ========================================
+  // HANDLER FUNCTIONS (outside useEffect)
+  // ========================================
 
   const handleReconnect = () => {
     if (reconnectRoomId) {
@@ -238,32 +258,19 @@ export default function Game() {
     setShowReconnectModal(false);
     setCanReconnect(false);
     setIsReconnecting(false);
-    
-    // Clear cookie and go to lobby
     roomCookies.clearCurrentRoom();
-    navigate('/lobby');
+    navigate("/lobby");
   };
 
-  const showNotification = (message: string) => {
-    setNotification(message);
-    setTimeout(() => setNotification(""), 3000);
-  };
-
-  const handleCardClick = (card: Card) => {
+   const handleCardClick = (card: Card) => {
     if (!isMyTurn) {
       showNotification("It's not your turn!");
       return;
     }
-
-    if (
-      gameState &&
-      gameState.pendingDraw > 0 &&
-      !["draw2", "wild_draw4"].includes(card.value as string)
-    ) {
+    if (gameState && gameState.pendingDraw > 0 && !["draw2", "wild_draw4"].includes(card.value as string)) {
       showNotification(`You must draw ${gameState.pendingDraw} cards!`);
       return;
     }
-
     if (card.color === "wild") {
       setPendingCard(card);
       setShowColorPicker(true);
@@ -289,25 +296,15 @@ export default function Game() {
   };
 
   const handleLeaveRoom = () => {
-    console.log('[Game] 🚪 Leaving room');
-    roomCookies.clearCurrentRoom(); // ✅ Clear cookie
+    roomCookies.clearCurrentRoom();
     socketService.leaveRoom();
-    navigate('/lobby');
+    navigate("/lobby");
   };
 
-  // Loading: Wait for socket
-  if (!isSocketConnected) {
-    return (
-      <div className="min-h-screen bg-dark-900 flex items-center justify-center">
-        <div className="text-center">
-          <div className="text-6xl mb-4 animate-bounce">🔌</div>
-          <p className="text-xl text-gray-400 mb-2">Connecting to server...</p>
-        </div>
-      </div>
-    );
-  }
+  // ========================================
+  // RENDER
+  // ========================================
 
-  // Show reconnection modal if checking
   if (showReconnectModal) {
     return (
       <div className="min-h-screen bg-dark-900">
@@ -323,40 +320,31 @@ export default function Game() {
     );
   }
 
-  // Loading: Wait for game state
   if (!gameState) {
     return (
       <div className="min-h-screen bg-dark-900 flex items-center justify-center">
         <div className="text-center">
           <div className="text-6xl mb-4 animate-bounce">🎮</div>
           <p className="text-xl text-gray-400 mb-2">Loading game...</p>
-          <p className="text-sm text-gray-500">Socket: {socketService.socket.id?.slice(0, 8)}</p>
         </div>
       </div>
     );
   }
 
-  const currentPlayer = gameState.players.find(
-    (p) => p.id === gameState.currentPlayer
-  );
-  const myPlayer = gameState.players.find(
-    (p) => p.id === userId
-  );
-  const otherPlayers = gameState.players.filter(
-    (p) => p.id !== userId
-  );
+  const currentPlayer = gameState.players.find((p) => p.id === gameState.currentPlayer);
+  const myPlayer = gameState.players.find((p) => p.id === userId);
+  const otherPlayers = gameState.players.filter((p) => p.id !== userId);
 
-  const getOpponentPosition = (index: number): 'top' | 'left' | 'right' => {
-    if (otherPlayers.length === 1) return 'top';
-    if (otherPlayers.length === 2) return index === 0 ? 'left' : 'right';
-    return index === 0 ? 'left' : index === 1 ? 'top' : 'right';
+  const getOpponentPosition = (index: number): "top" | "left" | "right" => {
+    if (otherPlayers.length === 1) return "top";
+    if (otherPlayers.length === 2) return index === 0 ? "left" : "right";
+    return index === 0 ? "left" : index === 1 ? "top" : "right";
   };
 
-  // Waiting room
   if (!gameState.gameStarted) {
     return (
       <WaitingRoom
-        roomId={roomId || ''}
+        roomId={roomId || ""}
         gameState={gameState}
         onAddBot={() => socketService.addBot()}
         onStartGame={() => socketService.startGame()}
@@ -365,8 +353,7 @@ export default function Game() {
     );
   }
 
-  // Active game
-  return (
+   return (
     <div className="min-h-screen bg-dark-900 pb-4">
       <Navigation />
 
@@ -387,22 +374,23 @@ export default function Game() {
         gameState={gameState}
         isMyTurn={isMyTurn}
         currentPlayerName={currentPlayer?.name}
+        turnTimeRemaining={turnTimeRemaining}
       />
 
       <div className="px-2 sm:px-4 max-w-7xl mx-auto">
-        <div className="relative w-full" style={{ perspective: '2000px' }}>
-          <div 
+        <div className="relative w-full" style={{ perspective: "2000px" }}>
+          <div
             className="relative bg-gradient-to-br from-green-900 via-green-800 to-green-900 rounded-2xl sm:rounded-[3rem] shadow-2xl p-4 sm:p-8"
             style={{
-              transform: 'rotateX(15deg)',
-              minHeight: window.innerWidth < 640 ? '500px' : '650px',
-              boxShadow: '0 30px 60px rgba(0, 0, 0, 0.6), inset 0 2px 10px rgba(255, 255, 255, 0.1)'
+              transform: "rotateX(15deg)",
+              minHeight: window.innerWidth < 640 ? "500px" : "650px",
+              boxShadow: "0 30px 60px rgba(0, 0, 0, 0.6), inset 0 2px 10px rgba(255, 255, 255, 0.1)",
             }}
           >
-            <div 
+            <div
               className="absolute inset-0 rounded-2xl sm:rounded-[3rem] opacity-10"
               style={{
-                backgroundImage: `repeating-linear-gradient(45deg, transparent, transparent 10px, rgba(255, 255, 255, 0.05) 10px, rgba(255, 255, 255, 0.05) 20px)`
+                backgroundImage: `repeating-linear-gradient(45deg, transparent, transparent 10px, rgba(255, 255, 255, 0.05) 10px, rgba(255, 255, 255, 0.05) 20px)`,
               }}
             />
 
@@ -422,7 +410,7 @@ export default function Game() {
             />
 
             <PlayerHand
-              playerName={myPlayer?.name || 'You'}
+              playerName={myPlayer?.name || "You"}
               playerHand={playerHand}
               isMyTurn={isMyTurn}
               pendingDraw={gameState.pendingDraw}

@@ -2,12 +2,17 @@
 import { Server } from 'socket.io';
 import { Socket } from '../../../types/socket.types.js';
 import { GameStateManager } from '../../../managers/GameStateManager.js';
+import { TurnTimerManager } from '../../../managers/TurnTimerManager.js';
 import { validatePlayCard } from '../../../validators/schemas.js';
 import { canPlayCard, applyCardEffect, getNextPlayer, checkWinner } from '../../../game/rules.js';
 import { emitError } from '../../../utils/errors.js';
 import { requireGameContext, requireTurn, requirePlayer } from './validators.js';
 import { processBotTurn } from './botTurnProcessor.js';
 import { GameHistoryService } from '../../../services/GameHistoryService.js';
+
+import { cleanupFinishedGame } from './gameCleanup.js';
+import { RoomService } from '../../../services/RoomService.js';
+
 
 export async function handlePlayCard(
   io: Server,
@@ -70,11 +75,18 @@ export async function handlePlayCard(
     // Check winner
     if (checkWinner(player)) {
       game.winner = userId;
+
       io.to(roomId).emit('game_over', {
         winner: player.name,
         winnerId: userId
       });
-      return;
+
+      // ✅ NEW: Trigger cleanup (async - don't await)
+      const roomService = RoomService.getInstance();
+      cleanupFinishedGame(io, roomId, game, gameManager, roomService)
+        .catch(err => console.error('[PlayCard] Cleanup error:', err));
+
+      return; // Exit handler
     }
     
     // ✅ NEW: Apply effects FIRST (may set pendingDraw)
@@ -98,7 +110,11 @@ export async function handlePlayCard(
         });
       }
     }
-    
+
+    // ✅ NEW: Reset timer for next player
+    const timerManager = TurnTimerManager.getInstance();
+    await timerManager.resetTimer(io, roomId, gameManager);
+
     // Trigger bot turn if needed
     const nextPlayer = game.players.find(p => p.id === game.currentPlayer);
     if (nextPlayer?.isBot) {

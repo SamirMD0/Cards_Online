@@ -154,9 +154,7 @@ class SocketService {
   this.socket.emit('check_reconnection');
 }
 
-reconnectToGame(roomId: string) {
-  this.socket.emit('reconnect_to_game', { roomId });
-}
+
 
 onReconnectionResult(callback: (data: any) => void) {
   this.socket.on('reconnection_result', callback);
@@ -170,12 +168,21 @@ onPlayerReconnected(callback: (data: any) => void) {
   this.socket.on('player_reconnected', callback);
 }
 
+onReconnectionFailed(callback: (data: any) => void) {
+  this.socket.on('reconnection_failed', callback);
+}
+
 checkRoomExists(roomId: string) {
     this.socket.emit('check_room_exists', { roomId });
   }
 
   onRoomExists(callback: (data: any) => void) {
     this.socket.on('room_exists', callback);
+  }
+
+  reconnectToGame(roomId: string) {
+    console.log('[Socket] Emitting reconnect_to_game for', roomId);
+    this.socket.emit('reconnect_to_game', { roomId });
   }
   
 }

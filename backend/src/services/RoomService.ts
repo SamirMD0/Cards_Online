@@ -95,18 +95,28 @@ export class RoomService {
   /**
    * Validate room can be joined
    */
-  canJoinRoom(roomId: string, gameStarted: boolean, currentPlayers: number): void {
+  canJoinRoom(
+    roomId: string, 
+    gameStarted: boolean, 
+    currentPlayers: any[], // Pass the actual players array from your GameManager/State
+    userId: string         // Pass the ID of the user trying to join
+  ): void {
     const room = this.rooms.get(roomId);
     
     if (!room) {
       throw new NotFoundError('Room not found');
     }
 
-    if (gameStarted) {
+    // Check if this specific user is already one of the players in the room
+    const isUserAlreadyInRoom = currentPlayers.some(p => p.id === userId);
+
+    // If the game has started, ONLY allow entry if the user is already in the player list
+    if (gameStarted && !isUserAlreadyInRoom) {
       throw new ConflictError('Game already started');
     }
 
-    if (currentPlayers >= room.maxPlayers) {
+    // If the room is full, ONLY allow entry if the user is already in the player list
+    if (currentPlayers.length >= room.maxPlayers && !isUserAlreadyInRoom) {
       throw new ConflictError('Room is full');
     }
   }

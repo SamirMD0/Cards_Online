@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
 import Navigation from '../components/Navigation';
 import RoomCard from '../components/RoomCard';
 import CreateRoomModal from '../components/CreateRoomModal';
@@ -22,12 +23,10 @@ interface Room {
 
 export default function Lobby() {
  const navigate = useNavigate();
+  const { user } = useAuth();
   const [rooms, setRooms] = useState<Room[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
-  const [playerName, setPlayerName] = useState('');
-  const [showNamePrompt, setShowNamePrompt] = useState(false);
-  const [selectedRoomId, setSelectedRoomId] = useState<string | null>(null);
   const [isConnected, setIsConnected] = useState(false);
   const [error, setError] = useState('');
 
@@ -76,20 +75,28 @@ export default function Lobby() {
 
     const handleRoomCreated = (data: { roomId: string; roomCode: string }) => {
       console.log('[Lobby] Room created:', data);
-      
-      // ✅ Save to cookie
-      roomCookies.setCurrentRoom(data.roomId, data.roomCode, 'Host');
-      
-      setSelectedRoomId(data.roomId);
-      setShowNamePrompt(true);
+
+      // ✅ FIX: Save cookie and navigate directly
+      if (user) {
+        roomCookies.setCurrentRoom(data.roomId, data.roomCode, user.username);
+      }
+
+      // No name prompt - backend already added us
+      // Wait for 'joined_room' event which will be emitted automatically
     };
 
     const handleJoinedRoom = (data: { roomId: string }) => {
-  console.log('[Lobby] Joined room:', data.roomId);
-  
-  // ✅ Normal join, no reconnect flag
-  navigate(`/game/${data.roomId}`); // No state = fresh join
-};
+      console.log('[Lobby] Joined room:', data.roomId);
+      
+      // ✅ Normal join, no reconnect flag
+      navigate(`/game/${data.roomId}`); // No state = fresh join
+    };
+
+    // ✅ NEW: Handle when server detects we're already in game
+    const handleShouldReconnect = (data: { roomId: string }) => {
+      console.log('[Lobby] Server says we should reconnect to:', data.roomId);
+      navigate(`/game/${data.roomId}`, { state: { reconnect: true } });
+    };
 
     // ✅ NEW: Handle room existence check
     const handleRoomExists = (data: { exists: boolean; roomId: string; gameState?: any }) => {
@@ -118,7 +125,8 @@ export default function Lobby() {
     socketService.onRoomsList(handleRoomsList);
     socketService.onRoomCreated(handleRoomCreated);
     socketService.onJoinedRoom(handleJoinedRoom);
-    socketService.socket.on('room_exists', handleRoomExists); // ✅ NEW
+    socketService.socket.on('should_reconnect', handleShouldReconnect); // ✅ CRITICAL FIX
+    socketService.socket.on('room_exists', handleRoomExists);
     socketService.onError(handleError);
 
     if (socketService.socket.connected) {
@@ -135,13 +143,14 @@ export default function Lobby() {
       clearInterval(interval);
       socketService.socket.off('connect', handleConnect);
       socketService.socket.off('disconnect', handleDisconnect);
-      socketService.socket.off('room_exists', handleRoomExists); // ✅ NEW
+      socketService.socket.off('should_reconnect', handleShouldReconnect); // ✅ CRITICAL FIX
+      socketService.socket.off('room_exists', handleRoomExists);
       socketService.off('rooms_list');
       socketService.off('room_created');
       socketService.off('joined_room');
       socketService.off('error');
     };
-  }, [navigate]);
+  }, [navigate, user]);
 
   const handleCreateRoom = (roomName: string, maxPlayers: number) => {
     // ✅ NEW: Check for active room first
@@ -161,10 +170,7 @@ export default function Lobby() {
     socketService.createRoom(roomName, maxPlayers);
   };
 
-  
-
-  const handleJoinRoom = (roomId: string) => {
-    // ✅ NEW: Check for active room first
+  const handleJoinRoom = async (roomId: string) => {
     const activeRoomId = roomCookies.getActiveRoomId();
     if (activeRoomId && activeRoomId !== roomId) {
       const room = roomCookies.getCurrentRoom();
@@ -178,25 +184,28 @@ export default function Lobby() {
       setTimeout(() => setError(''), 4000);
       return;
     }
-    
-    setSelectedRoomId(roomId);
-    setShowNamePrompt(true);
-  };
 
-  const handleNameSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (playerName.trim() && selectedRoomId) {
-      // ✅ Save to cookie (will be updated with proper roomCode after join)
-      const room = rooms.find(r => r.id === selectedRoomId);
-      if (room) {
-        roomCookies.setCurrentRoom(selectedRoomId, room.roomCode, playerName.trim());
-      }
-
-      socketService.joinRoom(selectedRoomId, playerName.trim());
-      setShowNamePrompt(false);
-      setPlayerName('');
-      setSelectedRoomId(null);
+    if (!user) {
+      setError('Authentication required');
+      setTimeout(() => setError(''), 4000);
+      return;
     }
+
+    const targetRoom = rooms.find(r => r.id === roomId);
+    if (!targetRoom) {
+      setError('Room not found');
+      setTimeout(() => setError(''), 4000);
+      return;
+    }
+
+    const playerName = user.username;
+    roomCookies.setCurrentRoom(roomId, targetRoom.roomCode, playerName);
+
+    // ✅ SIMPLIFIED: Let server decide if we should join or reconnect
+    // Server will emit 'joined_room' for new joins
+    // Server will emit 'should_reconnect' if we're already in the game
+    console.log(`[Lobby] Attempting to join room ${roomId} as ${playerName}`);
+    socketService.joinRoom(roomId, playerName);
   };
 
   // ✅ NEW: Handle rejoin to active room
@@ -204,8 +213,8 @@ export default function Lobby() {
     if (activeRoom) {
       console.log('[Lobby] Rejoining active room:', activeRoom.roomId);
       navigate(`/game/${activeRoom.roomId}`, { 
-      state: { reconnect: true }  // ✅ This tells Game.tsx to check reconnection
-    });
+        state: { reconnect: true }  // ✅ This tells Game.tsx to check reconnection
+      });
     }
   };
 
@@ -225,7 +234,6 @@ export default function Lobby() {
   const activeRooms = rooms.length;
   const totalPlayers = rooms.reduce((sum, room) => sum + room.players.length, 0);
   const gamesInProgress = rooms.filter(r => r.gameStarted).length;
-
 
   if (isCheckingRoom) {
     return (
@@ -483,51 +491,6 @@ export default function Lobby() {
         onClose={() => setIsModalOpen(false)}
         onCreate={handleCreateRoom}
       />
-
-      {/* Name Prompt Modal */}
-      {showNamePrompt && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm"
-          onClick={() => setShowNamePrompt(false)}
-        >
-          <div
-            className="bg-dark-800 border-2 border-dark-700 rounded-2xl p-8 max-w-md w-full"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <h2 className="text-3xl font-poppins font-bold text-white mb-6">
-              Enter Your Name
-            </h2>
-            <form onSubmit={handleNameSubmit}>
-              <input
-                type="text"
-                value={playerName}
-                onChange={(e) => setPlayerName(e.target.value)}
-                placeholder="Your name..."
-                maxLength={30}
-                className="w-full px-4 py-3 bg-dark-700 border-2 border-dark-600 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-uno-blue transition-colors duration-200 mb-4"
-                autoFocus
-                required
-              />
-              <div className="flex gap-3">
-                <button
-                  type="button"
-                  onClick={() => setShowNamePrompt(false)}
-                  className="flex-1 py-3 bg-dark-700 hover:bg-dark-600 text-white font-semibold rounded-lg transition-colors"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={!playerName.trim()}
-                  className="flex-1 py-3 bg-gradient-to-r from-uno-blue to-uno-green hover:shadow-glow-blue text-white font-semibold rounded-lg transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  Join
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
