@@ -1,5 +1,8 @@
 {
   "dependencies": {
-    "lucide-react": "^0.562.0"
+    "express-rate-limit": "^8.2.1",
+    "helmet": "^8.1.0",
+    "lucide-react": "^0.562.0",
+    "winston": "^3.19.0"
   }
 }

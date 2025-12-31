@@ -1,31 +1,46 @@
-import { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
-import { useAuth } from '../context/AuthContext';
-import Navigation from '../components/Navigation';
+import { useState } from "react";
+import { useNavigate, Link } from "react-router-dom";
+import { useAuth } from "../context/AuthContext";
+import Navigation from "../components/Navigation";
 
 export default function Register() {
   const navigate = useNavigate();
   const { register } = useAuth();
-  
-  const [username, setUsername] = useState('');
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
-  const [error, setError] = useState('');
+
+  const [username, setUsername] = useState("");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [passwordStrength, setPasswordStrength] = useState("");
+
+  const checkPasswordStrength = (pass: string) => {
+    if (pass.length < 12) return "Too short";
+    const checks = [
+      /[A-Z]/.test(pass),
+      /[a-z]/.test(pass),
+      /[0-9]/.test(pass),
+      /[^A-Za-z0-9]/.test(pass),
+    ].filter(Boolean).length;
+
+    if (checks >= 4) return "Strong";
+    if (checks >= 3) return "Good";
+    return "Weak";
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError('');
+    setError("");
 
     // Validation
     if (password !== confirmPassword) {
-      setError('Passwords do not match');
+      setError("Passwords do not match");
       return;
     }
 
     if (password.length < 8) {
-      setError('Password must be at least 8 characters');
+      setError("Password must be at least 8 characters");
       return;
     }
 
@@ -33,9 +48,9 @@ export default function Register() {
 
     try {
       await register(username, email, password);
-      navigate('/lobby');
+      navigate("/lobby");
     } catch (err: any) {
-      setError(err.message || 'Registration failed');
+      setError(err.message || "Registration failed");
     } finally {
       setLoading(false);
     }
@@ -44,7 +59,7 @@ export default function Register() {
   return (
     <div className="min-h-screen bg-dark-900">
       <Navigation />
-      
+
       <div className="flex items-center justify-center min-h-screen px-4 pt-20">
         <div className="w-full max-w-md">
           {/* Card */}
@@ -68,7 +83,10 @@ export default function Register() {
             <form onSubmit={handleSubmit} className="space-y-5">
               {/* Username */}
               <div>
-                <label htmlFor="username" className="block text-sm font-semibold text-gray-300 mb-2">
+                <label
+                  htmlFor="username"
+                  className="block text-sm font-semibold text-gray-300 mb-2"
+                >
                   Username
                 </label>
                 <input
@@ -91,7 +109,10 @@ export default function Register() {
 
               {/* Email */}
               <div>
-                <label htmlFor="email" className="block text-sm font-semibold text-gray-300 mb-2">
+                <label
+                  htmlFor="email"
+                  className="block text-sm font-semibold text-gray-300 mb-2"
+                >
                   Email
                 </label>
                 <input
@@ -107,24 +128,42 @@ export default function Register() {
 
               {/* Password */}
               <div>
-                <label htmlFor="password" className="block text-sm font-semibold text-gray-300 mb-2">
+                <label
+                  htmlFor="password"
+                  className="block text-sm font-semibold text-gray-300 mb-2"
+                >
                   Password
                 </label>
                 <input
                   id="password"
                   type="password"
                   value={password}
-                  onChange={(e) => setPassword(e.target.value)}
                   placeholder="At least 8 characters"
                   minLength={8}
+                  onChange={(e) => {
+                    setPassword(e.target.value);
+                    setPasswordStrength(checkPasswordStrength(e.target.value));
+                  }}
                   className="w-full px-4 py-3 bg-dark-700 border-2 border-dark-600 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-uno-blue transition-colors"
                   required
                 />
+                {password && (
+                  <p className={`text-xs mt-1 ${
+                    passwordStrength === 'Strong' ? 'text-green-400' :
+                    passwordStrength === 'Good' ? 'text-yellow-400' :
+                    'text-red-400'
+                  }`}>
+                    Strength: {passwordStrength}
+                  </p>
+                )}
               </div>
 
               {/* Confirm Password */}
               <div>
-                <label htmlFor="confirmPassword" className="block text-sm font-semibold text-gray-300 mb-2">
+                <label
+                  htmlFor="confirmPassword"
+                  className="block text-sm font-semibold text-gray-300 mb-2"
+                >
                   Confirm Password
                 </label>
                 <input
@@ -144,15 +183,18 @@ export default function Register() {
                 disabled={loading}
                 className="w-full py-4 bg-gradient-to-r from-uno-blue to-uno-green hover:shadow-glow-blue text-white font-bold text-lg rounded-lg transition-all duration-300 hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
               >
-                {loading ? 'Creating Account...' : 'Create Account'}
+                {loading ? "Creating Account..." : "Create Account"}
               </button>
             </form>
 
             {/* Login Link */}
             <div className="mt-6 text-center">
               <p className="text-gray-400">
-                Already have an account?{' '}
-                <Link to="/login" className="text-uno-blue hover:text-uno-green font-semibold transition-colors">
+                Already have an account?{" "}
+                <Link
+                  to="/login"
+                  className="text-uno-blue hover:text-uno-green font-semibold transition-colors"
+                >
                   Login here
                 </Link>
               </p>

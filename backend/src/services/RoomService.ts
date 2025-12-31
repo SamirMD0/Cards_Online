@@ -1,6 +1,6 @@
 import { RoomMetadata, RoomListItem } from '../types/room.types.js';
 import { ValidationError, ConflictError, NotFoundError } from '../utils/errors.js';
-
+import { randomBytes } from 'crypto';
 /**
  * RoomService: Pure business logic for room management
  * No Socket.IO, no external dependencies - just business rules
@@ -128,11 +128,17 @@ export class RoomService {
   }
 
   private generateRoomCode(): string {
-    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
-    let code = '';
-    for (let i = 0; i < 6; i++) {
-      code += chars.charAt(Math.floor(Math.random() * chars.length));
-    }
-    return code;
+  // Use crypto.randomBytes for secure randomness
+  // 8 characters from base36 (2.8 trillion combinations)
+  const bytes = randomBytes(6);
+  let code = '';
+  
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // Removed ambiguous chars
+  
+  for (let i = 0; i < 8; i++) {
+    code += chars[bytes[i % bytes.length] % chars.length];
   }
+  
+  return code;
+}
 }

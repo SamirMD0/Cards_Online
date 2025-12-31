@@ -8,12 +8,17 @@ interface GameDebugPanelProps {
   onRequestHand: () => void;
 }
 
-export default function GameDebugPanel({ 
-  handCount, 
+export default function GameDebugPanel({
+  handCount,
   userId,
-  isMyTurn, 
-  onRequestHand 
+  isMyTurn,
+  onRequestHand
 }: GameDebugPanelProps) {
+  // Only show in development
+  if (import.meta.env.PROD) {
+    return null;
+  }
+
   return (
     <div className="fixed top-24 left-4 bg-black/80 text-white p-3 rounded-lg text-xs max-w-xs z-50">
       <div className="font-bold mb-2">🔍 Debug Info</div>

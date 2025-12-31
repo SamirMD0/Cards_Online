@@ -3,6 +3,13 @@ import { CreateRoomInput, JoinRoomInput, PlayCardInput } from '../types/room.typ
 
 // Simple validation functions (we'll use a library like Zod later)
 
+function sanitizeString(input: string): string {
+  return input
+    .trim()
+    .replace(/[<>]/g, '') // Remove HTML chars
+    .substring(0, 100); // Max length
+}
+
 export function validateCreateRoom(data: any): CreateRoomInput {
   if (!data || typeof data !== 'object') {
     throw new ValidationError('Invalid input data');
@@ -30,7 +37,7 @@ export function validateCreateRoom(data: any): CreateRoomInput {
   }
 
   return {
-    roomName: roomName.trim(),
+    roomName: sanitizeString(roomName),
     maxPlayers
   };
 }
@@ -63,7 +70,7 @@ export function validateJoinRoom(data: any): JoinRoomInput {
 
   return {
     roomId: roomId.trim(),
-    playerName: playerName.trim()
+    playerName: sanitizeString(playerName)
   };
 }
 

@@ -4,6 +4,7 @@ import { RoomService } from '../../services/RoomService.js';
 import { GameStateManager } from '../../managers/GameStateManager.js';
 import { validateCreateRoom, validateJoinRoom } from '../../validators/schemas.js';
 import { emitError } from '../../utils/errors.js';
+import { logger } from '../../lib/logger.js';
 
 export function setupRoomHandlers(
   io: Server,
@@ -83,7 +84,7 @@ export function setupRoomHandlers(
 
       await broadcastRoomsList(io, roomService, gameManager);
 
-      console.log(`[RoomHandlers] ${socket.data.username} created room ${roomId}`);
+      logger.info('Room created', { username: socket.data.username, roomId });
 
     } catch (error) {
       emitError(socket, error);
@@ -94,8 +95,9 @@ export function setupRoomHandlers(
    * ✅ JOIN ROOM - ONLY for NEW players BEFORE game starts
    */
   socket.on('join_room', async (data) => {
+    let validated: ReturnType<typeof validateJoinRoom> | undefined;
     try {
-      const validated = validateJoinRoom(data);
+      validated = validateJoinRoom(data);
       const { roomId, playerName } = validated;
       const userId = socket.data.userId;
 
@@ -103,7 +105,7 @@ export function setupRoomHandlers(
         throw new Error('User not authenticated');
       }
 
-      console.log(`[JoinRoom] User ${userId} attempting to join ${roomId}`);
+      logger.info('User attempting to join room', { userId, roomId });
 
       const game = await gameManager.getGameOrThrow(roomId);
       const room = roomService.getRoom(roomId);
@@ -117,7 +119,7 @@ export function setupRoomHandlers(
       
       if (existingPlayer) {
         // ✅ Player already exists - this is a RECONNECTION scenario
-        console.log(`[JoinRoom] ⚠️ Player ${userId} already in game - use reconnect_to_game instead`);
+        logger.warn('Player already in game, triggering reconnection', { userId, roomId });
         socket.emit('error', {
           message: 'You are already in this game. Reconnecting...'
         });
@@ -129,7 +131,7 @@ export function setupRoomHandlers(
 
       // ✅ CHECK: Is game already started?
       if (game.gameStarted) {
-        console.log(`[JoinRoom] ❌ Game ${roomId} already started, new players cannot join`);
+        logger.warn('Game already started, cannot join', { roomId });
         throw new Error('Game already started. Cannot join.');
       }
 
@@ -139,7 +141,7 @@ export function setupRoomHandlers(
       }
 
       // ✅ NEW PLAYER - Add to game
-      console.log(`[JoinRoom] ✅ Adding new player ${userId} to ${roomId}`);
+      logger.info('Adding new player to room', { userId, roomId, playerName });
       const added = game.addPlayer(userId, playerName);
       
       if (!added) {
@@ -157,10 +159,10 @@ export function setupRoomHandlers(
 
       await broadcastRoomsList(io, roomService, gameManager);
 
-      console.log(`[JoinRoom] ✅ ${playerName} joined room ${roomId}`);
+      logger.info('Player joined room', { playerName, roomId });
 
     } catch (error) {
-      console.error('[JoinRoom] Error:', error);
+      logger.error('Error joining room', { error: error instanceof Error ? error.message : String(error), userId: socket.data.userId, roomId: validated?.roomId });
       emitError(socket, error);
     }
   });
@@ -178,7 +180,7 @@ export function setupRoomHandlers(
         throw new Error('Authentication required');
       }
 
-      console.log(`[ReconnectToGame] ${username} (${userId}) reconnecting to ${roomId}`);
+      logger.info('User reconnecting to game', { username, userId, roomId });
 
       const game = await gameManager.getGame(roomId);
       
@@ -205,7 +207,7 @@ export function setupRoomHandlers(
       gameManager.setSocketRoom(socket.id, roomId);
       gameManager.resetGameTimer(roomId);
 
-      console.log(`[ReconnectToGame] ✅ ${username} reconnected to ${roomId}`);
+      logger.info('User reconnected to game', { username, roomId });
 
       // ✅ Send full game state + player hand
       socket.emit('game_restored', {
@@ -255,7 +257,7 @@ export function setupRoomHandlers(
         return;
       }
 
-      console.log(`[RequestGameState] ✅ Sending state to ${userId}`);
+      logger.info('Sending game state to user', { userId });
 
       socket.emit('game_state', game.getPublicState());
 
@@ -295,7 +297,7 @@ export function setupRoomHandlers(
         
         if (game && game.gameStarted) {
           // ✅ Game started - DON'T remove player, they might reconnect
-          console.log(`[Disconnect] Game started, keeping ${username} in game (may reconnect)`);
+          logger.info('Game started, keeping user in game for potential reconnection', { username, userId, roomId });
           socket.leave(roomId);
           gameManager.removeSocketMapping(socket.id);
           
@@ -307,7 +309,7 @@ export function setupRoomHandlers(
           
         } else if (game) {
           // ✅ Game NOT started - remove player normally
-          console.log(`[Disconnect] Game not started, removing ${username} from game`);
+          logger.info('Game not started, removing user from game', { username, userId, roomId });
           await handlePlayerLeave(io, socket, roomId, roomService, gameManager);
         }
       }
@@ -351,7 +353,7 @@ export async function handlePlayerLeave(
 
   // ✅ CRITICAL FIX: Don't remove players if game has started - they might reconnect!
   if (game.gameStarted) {
-    console.log(`[HandlePlayerLeave] Game started, NOT removing player ${userId} (they may reconnect)`);
+    logger.info('Game started, not removing player for potential reconnection', { userId, roomId });
     socket.leave(roomId);
     gameManager.removeSocketMapping(socket.id);
     
@@ -366,7 +368,7 @@ export async function handlePlayerLeave(
   }
 
   // ✅ Game NOT started - safe to remove player
-  console.log(`[HandlePlayerLeave] Game not started, removing player ${userId}`);
+  logger.info('Game not started, removing player', { userId, roomId });
   game.removePlayer(userId);
   socket.leave(roomId);
   gameManager.removeSocketMapping(socket.id);

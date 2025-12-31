@@ -3,11 +3,40 @@ import jwt from 'jsonwebtoken';
 import { prisma } from '../lib/prisma.js';
 import { ValidationError, UnauthorizedError, ConflictError } from '../utils/errors.js';
 
-const JWT_SECRET = process.env.JWT_SECRET || 'fallback-secret-change-me';
+const JWT_SECRET = process.env.JWT_SECRET;
+
+if (!JWT_SECRET || JWT_SECRET.length < 32) {
+  throw new Error(
+    'FATAL: JWT_SECRET is missing or too short (min 32 chars). ' +
+    'Set it in .env before starting the server.'
+  );
+}
+
 const SALT_ROUNDS = 10;
 const TOKEN_EXPIRY = '7d';
 
 export class AuthService {
+
+  private static validatePasswordStrength(password: string): void {
+    
+  if (password.length < 12) {
+    throw new ValidationError('Password must be at least 12 characters');
+  }
+  
+  const hasUpperCase = /[A-Z]/.test(password);
+  const hasLowerCase = /[a-z]/.test(password);
+  const hasNumber = /[0-9]/.test(password);
+  const hasSpecial = /[^A-Za-z0-9]/.test(password);
+  
+  const strength = [hasUpperCase, hasLowerCase, hasNumber, hasSpecial]
+    .filter(Boolean).length;
+  
+  if (strength < 3) {
+    throw new ValidationError(
+      'Password must contain at least 3 of: uppercase, lowercase, number, special character'
+    );
+  }
+}
   
   /**
    * Register a new user
@@ -22,9 +51,14 @@ export class AuthService {
       throw new ValidationError('Valid email required');
     }
     
-    if (!password || password.length < 8) {
-      throw new ValidationError('Password must be at least 8 characters');
-    }
+   if (!password) {
+  throw new ValidationError('Password required');
+}
+
+
+
+
+    this.validatePasswordStrength(password);
     
     // Sanitize username (alphanumeric only)
     const cleanUsername = username.replace(/[^a-zA-Z0-9_-]/g, '');
@@ -66,13 +100,14 @@ export class AuthService {
     });
     
     // Create session
-    const token = jwt.sign({ userId: user.id }, JWT_SECRET, { expiresIn: TOKEN_EXPIRY });
-    
+    const token = jwt.sign({ userId: user.id }, JWT_SECRET as string, { expiresIn: TOKEN_EXPIRY });
+    const SESSION_DURATION_MS = 7 * 24 * 60 * 60 * 1000;
+
     await prisma.session.create({
       data: {
         userId: user.id,
         token,
-        expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000) // 7 days
+        expiresAt: new Date(Date.now() + SESSION_DURATION_MS) // 7 days
       }
     });
     
@@ -110,7 +145,7 @@ export class AuthService {
     }
     
     // Create new session
-    const token = jwt.sign({ userId: user.id }, JWT_SECRET, { expiresIn: TOKEN_EXPIRY });
+    const token = jwt.sign({ userId: user.id }, JWT_SECRET as string, { expiresIn: TOKEN_EXPIRY });
     
     await prisma.session.create({
       data: {
@@ -139,7 +174,7 @@ export class AuthService {
   static async verifyToken(token: string) {
     try {
       // Verify JWT
-      const decoded = jwt.verify(token, JWT_SECRET) as { userId: string };
+      const decoded = jwt.verify(token, JWT_SECRET as string) as { userId: string };
       
       // Check session exists and not expired
       const session = await prisma.session.findUnique({
@@ -178,6 +213,39 @@ export class AuthService {
       // Session might not exist, that's okay
     }
   }
+
+  /**
+ * Logout from ALL devices (revoke all sessions)
+ */
+static async logoutAll(userId: string) {
+  const deleted = await prisma.session.deleteMany({
+    where: { userId }
+  });
+  
+  console.log(`[Auth] Revoked ${deleted.count} sessions for user ${userId}`);
+}
+
+/**
+ * Get active sessions for a user (logged-in devices)
+ */
+
+
+static async getActiveSessions(userId: string) {
+  return await prisma.session.findMany({
+    where: {
+      userId,
+      expiresAt: { gt: new Date() }
+    },
+    select: {
+      id: true,
+      createdAt: true,
+      expiresAt: true,
+    },
+    orderBy: { createdAt: 'desc' }
+  });
+}
+
+
   
   /**
    * Clean up expired sessions (call periodically)

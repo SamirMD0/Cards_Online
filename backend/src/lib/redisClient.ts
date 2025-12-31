@@ -1,6 +1,10 @@
 import { Redis } from 'ioredis';
 
-const REDIS_URL = process.env.REDIS_URL || 'redis://localhost:6379';
+const REDIS_URL = process.env.REDIS_URL;
+
+if (!REDIS_URL) {
+  throw new Error('REDIS_URL environment variable is required');
+}
 
 // Singleton Redis client
 class RedisClient {
@@ -8,13 +12,14 @@ class RedisClient {
 
   static getInstance(): Redis {
     if (!RedisClient.instance) {
-      RedisClient.instance = new Redis(REDIS_URL, {
+      RedisClient.instance = new Redis(REDIS_URL!, {
         maxRetriesPerRequest: 3,
         retryStrategy: (times) => {
           if (times > 3) {
             console.error('❌ Redis connection failed after 3 retries');
             return null; // Stop retrying
           }
+          
           return Math.min(times * 200, 1000); // Exponential backoff
         }
       });
