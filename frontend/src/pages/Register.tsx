@@ -138,8 +138,8 @@ export default function Register() {
                   id="password"
                   type="password"
                   value={password}
-                  placeholder="At least 8 characters"
-                  minLength={8}
+                  placeholder="At least 12 characters"
+                  minLength={12}
                   onChange={(e) => {
                     setPassword(e.target.value);
                     setPasswordStrength(checkPasswordStrength(e.target.value));
@@ -148,11 +148,15 @@ export default function Register() {
                   required
                 />
                 {password && (
-                  <p className={`text-xs mt-1 ${
-                    passwordStrength === 'Strong' ? 'text-green-400' :
-                    passwordStrength === 'Good' ? 'text-yellow-400' :
-                    'text-red-400'
-                  }`}>
+                  <p
+                    className={`text-xs mt-1 ${
+                      passwordStrength === "Strong"
+                        ? "text-green-400"
+                        : passwordStrength === "Good"
+                        ? "text-yellow-400"
+                        : "text-red-400"
+                    }`}
+                  >
                     Strength: {passwordStrength}
                   </p>
                 )}

@@ -7,19 +7,30 @@ export class FriendService {
    * Send a friend request
    */
   static async sendFriendRequest(requesterId: string, receiverUsername: string) {
-    // Validate input
-    if (!receiverUsername || receiverUsername.length < 3) {
-      throw new ValidationError('Invalid username');
-    }
-    
-    // Find receiver by username
-    const receiver = await prisma.user.findUnique({
-      where: { username: receiverUsername }
-    });
-    
-    if (!receiver) {
-      throw new NotFoundError('User not found');
-    }
+   // ✅ SECURITY: Validate and sanitize username input
+  if (!receiverUsername || receiverUsername.length < 3) {
+    throw new ValidationError('Invalid username');
+  }
+  
+   // ✅ SECURITY: Remove any dangerous characters
+  const cleanUsername = receiverUsername.trim().replace(/[^a-zA-Z0-9_-]/g, '');
+  if (cleanUsername !== receiverUsername.trim()) {
+    throw new ValidationError('Username contains invalid characters');
+  }
+
+  if (cleanUsername.length > 20) {
+    throw new ValidationError('Username too long');
+  }
+
+  // Find receiver by sanitized username
+  const receiver = await prisma.user.findUnique({
+    where: { username: cleanUsername }
+  });
+
+  if (!receiver) {
+    throw new NotFoundError('User not found');
+  }
+  
     
     // Can't add yourself
     if (requesterId === receiver.id) {

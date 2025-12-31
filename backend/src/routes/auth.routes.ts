@@ -4,16 +4,25 @@ import { authMiddleware } from '../middleware/auth.js';
 
 const router = express.Router();
 
-const getCookieOptions = () => ({
-  httpOnly: true,
-  secure: process.env.NODE_ENV === 'production', // HTTPS only in prod
-  sameSite: process.env.NODE_ENV === 'production' ? 'strict' as const : 'lax' as const,
-  maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
-  path: '/',
-  ...(process.env.NODE_ENV === 'production' && {
-    domain: new URL(process.env.CLIENT_URL!).hostname, // Explicit domain in prod
-  }),
-});
+const getCookieOptions = () => {
+  const options: any = {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: process.env.NODE_ENV === 'production' ? 'strict' as const : 'lax' as const,
+    maxAge: 7 * 24 * 60 * 60 * 1000,
+    path: '/',
+  };
+
+  // ⚠️ SECURITY NOTE: Domain setting for production
+  // Only set explicit domain if needed for subdomain sharing
+  // Test thoroughly with your deployment setup
+  // Uncomment and adjust if required:
+  // if (process.env.NODE_ENV === 'production' && process.env.COOKIE_DOMAIN) {
+  //   options.domain = process.env.COOKIE_DOMAIN;
+  // }
+
+  return options;
+};
 
 /**
  * POST /api/auth/register
