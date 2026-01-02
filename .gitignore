@@ -37,3 +37,4 @@ build/
 .cache/
 temp/
 tmp/
+backend/src/game/setupTests.ts
