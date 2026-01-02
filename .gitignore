@@ -38,3 +38,9 @@ build/
 temp/
 tmp/
 backend/src/game/setupTests.ts
+
+
+# Keep environment variables out of version control
+.env
+.env.test
+.env.*
