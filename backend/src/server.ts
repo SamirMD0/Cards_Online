@@ -5,7 +5,6 @@ import cors from "cors";
 import cookieParser from "cookie-parser";
 import dotenv from "dotenv";
 import rateLimit from "express-rate-limit";
-
 import { setupSocketIO } from "./socket/socketSetup.js";
 import authRoutes from "./routes/auth.routes.js";
 import friendRoutes from "./routes/friend.routes.js";
@@ -18,8 +17,7 @@ import { setupGracefulShutdown } from "./utils/shutdown.js";
 dotenv.config();
 validateEnvironment();
 const app = express();
-const httpServer = createServer(app);
-
+export const server = createServer(app);
 const CLIENT_URL = process.env.CLIENT_URL || "http://localhost:5173";
 const PORT = process.env.PORT || 3001;
 
@@ -108,7 +106,7 @@ app.use("/api/friends", friendRoutes);
    SOCKET.IO
    ====================== */
 
-const io = new Server(httpServer, {
+export const io = new Server(server, {
   cors: {
     origin: ALLOWED_ORIGINS.filter(
       (url): url is string => typeof url === "string"
@@ -132,13 +130,13 @@ setInterval(() => {
    GRACEFUL SHUTDOWN
    ====================== */
 
-setupGracefulShutdown(httpServer, io);
+setupGracefulShutdown(server, io);
 
 /* ======================
    START SERVER
    ====================== */
 
-httpServer.listen(PORT, () => {
+server.listen(PORT, () => {
   console.log("=================================");
   console.log("🎮 UNO Server");
   console.log(`📡 Port: ${PORT}`);
