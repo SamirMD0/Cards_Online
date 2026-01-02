@@ -1,7 +1,7 @@
 // frontend/src/components/game/GameHeader.tsx
 
 import { useState, useEffect } from 'react';
-import type { GameState } from '../../types';
+import type { GameState } from '../../../../types';
 
 interface GameHeaderProps {
   gameState: GameState;

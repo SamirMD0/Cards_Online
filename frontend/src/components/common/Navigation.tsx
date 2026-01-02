@@ -1,5 +1,5 @@
 import { Link, useNavigate } from 'react-router-dom';
-import { useAuth } from '../context/AuthContext';
+import { useAuth } from '../../context/AuthContext';
 
 export default function Navigation() {
   const { user, logout } = useAuth();
@@ -18,7 +18,7 @@ export default function Navigation() {
           <Link to="/" className="flex items-center space-x-2 group">
             <div className="relative">
               <span className="text-3xl font-poppins font-extrabold text-white">
-                UNO
+                Cards Online
               </span>
               <div className="absolute -bottom-1 left-0 w-full h-1 bg-gradient-to-r from-uno-red via-uno-blue to-uno-green rounded-full transform scale-x-0 group-hover:scale-x-100 transition-transform duration-300" />
             </div>

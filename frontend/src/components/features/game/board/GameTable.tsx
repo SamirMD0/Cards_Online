@@ -1,6 +1,6 @@
 // frontend/src/components/game/GameTable.tsx
-import UnoCard, { CardColor } from '../UnoCard';
-import type { GameState } from '../../types';
+import UnoCard, { CardColor } from '../../uno-cards/UnoCard';
+import type { GameState } from '../../../../types';
 
 interface GameTableProps {
   gameState: GameState;

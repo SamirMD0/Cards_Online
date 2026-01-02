@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
-import Navigation from '../components/Navigation';
-import PlayerAvatar from '../components/PlayerAvatar';
+import Navigation from '../components/common/Navigation';
+import PlayerAvatar from '../components/common/PlayerAvatar';
 
 const API_URL = import.meta.env.VITE_SERVER_URL || 'http://localhost:3001';
 

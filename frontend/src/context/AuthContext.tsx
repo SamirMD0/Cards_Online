@@ -1,4 +1,3 @@
-// frontend/src/context/AuthContext.tsx - Export userId
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { socketService } from '../socket';
 
@@ -117,7 +116,6 @@ export function useAuth() {
   return context;
 }
 
-// ✅ NEW: Export helper to get current userId
 export function getCurrentUserId(): string | null {
   const context = useContext(AuthContext);
   return context?.user?.id || null;

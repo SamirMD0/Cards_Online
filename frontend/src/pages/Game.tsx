@@ -1,18 +1,18 @@
 import { useState, useEffect, useRef } from "react";
 import { useParams, useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
-import Navigation from "../components/Navigation";
-import GameDebugPanel from "../components/game/GameDebugPanel";
-import GameHeader from "../components/game/GameHeader";
-import GameTable from "../components/game/GameTable";
-import PlayerHand from "../components/game/PlayerHand";
-import OpponentHand from "../components/game/OpponentHand";
-import ColorPickerModal from "../components/game/ColorPickerModal";
-import GameOverModal from "../components/game/GameOverModal";
-import WaitingRoom from "../components/game/WaitingRoom";
+import Navigation from "../components/common/Navigation";
+import GameDebugPanel from "../components/features/game/ui/GameDebugPanel";
+import GameHeader from "../components/features/game/ui/GameHeader";
+import GameTable from "../components/features/game/board/GameTable";
+import PlayerHand from "../components/features/game/board/PlayerHand";
+import OpponentHand from "../components/features/game/board/OpponentHand";
+import ColorPickerModal from "../components/features/game/ui/ColorPickerModal";
+import GameOverModal from "../components/features/game/ui/GameOverModal";
+import WaitingRoom from "../components/features/lobby/WaitingRoom";
 import { socketService } from "../socket";
 import type { GameState, Card } from "../types";
-import ReconnectionModal from "../components/ReconnectionModal";
+import ReconnectionModal from "../components/features/game/ui/ReconnectionModal";
 import { roomCookies } from "../utils/roomCookies";
 
 // frontend/src/pages/Game.tsx

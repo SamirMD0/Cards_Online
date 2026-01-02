@@ -1,7 +1,7 @@
 // frontend/src/components/game/WaitingRoom.tsx
-import Navigation from '../Navigation';
-import PlayerAvatar from '../PlayerAvatar';
-import type { GameState } from '../../types';
+import Navigation from '../../common/Navigation';
+import PlayerAvatar from '../../common/PlayerAvatar';
+import type { GameState } from '../../../types';
 
 interface WaitingRoomProps {
   roomId: string;

@@ -1,7 +1,7 @@
-// frontend/src/components/game/OpponentHand.tsx
-import UnoCard from '../UnoCard';
-import PlayerAvatar from '../PlayerAvatar';
-import type { Player } from '../../types';
+// frontend/src/components/features/game/board/OpponentHand.tsx
+import UnoCard from '../../uno-cards/UnoCard';
+import PlayerAvatar from '../../../common/PlayerAvatar';
+import type { Player } from '../../../../types';
 
 interface OpponentHandProps {
   player: Player;

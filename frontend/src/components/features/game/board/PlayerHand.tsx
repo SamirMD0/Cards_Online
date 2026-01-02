@@ -1,7 +1,7 @@
 // frontend/src/components/game/PlayerHand.tsx
-import UnoCard, { CardColor } from '../UnoCard';
-import PlayerAvatar from '../PlayerAvatar';
-import type { Card, GameState } from '../../types';
+import UnoCard, { CardColor } from '../../uno-cards/UnoCard';
+import PlayerAvatar from '../../../common/PlayerAvatar';
+import type { Card } from '../../../../types';
 
 interface PlayerHandProps {
   playerName: string;

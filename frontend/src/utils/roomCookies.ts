@@ -20,10 +20,8 @@ export const roomCookies = {
       joinedAt: Date.now(),
     };
 
-    // Store as JSON string
     const value = JSON.stringify(data);
     
-    // Set cookie with 24-hour expiry
     document.cookie = `${ROOM_COOKIE_NAME}=${encodeURIComponent(value)}; max-age=${COOKIE_MAX_AGE}; path=/; SameSite=Strict`;
     
     console.log(`[RoomCookies] ✅ Saved room: ${roomCode} (${roomId})`);
@@ -46,9 +44,8 @@ export const roomCookies = {
       const decoded = decodeURIComponent(value);
       const data: RoomCookie = JSON.parse(decoded);
       
-      // Check if cookie is expired (older than 24 hours)
       const age = Date.now() - data.joinedAt;
-      const maxAge = 24 * 60 * 60 * 1000; // 24 hours in ms
+      const maxAge = 24 * 60 * 60 * 1000;
       
       if (age > maxAge) {
         console.log('[RoomCookies] Cookie expired, clearing...');

@@ -1,14 +1,13 @@
-import Navigation from '../components/Navigation';
-import PlayButton from '../components/PlayButton';
-import gameBackground from '../assets/game-background.png';
+import Navigation from '../components/common/Navigation';
+import PlayButton from '../components/common/PlayButton';
 
 export default function Home() {
   return (
     <div className="relative min-h-screen overflow-hidden">
       {/* Background */}
       <div className="fixed inset-0 z-0">
-        {/* Dark interrogation room background */}
-        <div className="absolute inset-0 bg-gradient-radial from-dark-800 via-dark-900 to-black" style={{ backgroundImage: `url(${gameBackground})`, backgroundSize: 'cover', backgroundPosition: 'center' }} />
+        {/* Dark background */}
+        <div className="absolute inset-0 bg-gradient-radial from-dark-800 via-dark-900 to-black" />
         
         {/* Vignette Effect */}
         <div 
@@ -40,7 +39,7 @@ export default function Home() {
         <div className="text-center mb-12 animate-float">
           <h1 className="text-7xl md:text-8xl font-poppins font-extrabold text-white mb-4">
             <span className="bg-gradient-to-r from-uno-red via-uno-yellow to-uno-green bg-clip-text text-transparent">
-              UNO
+              CARDS
             </span>
           </h1>
           <p className="text-xl md:text-2xl text-gray-300 font-inter">
@@ -50,7 +49,7 @@ export default function Home() {
    
         
         {/* Play Button */}
-        <PlayButton  />
+        <PlayButton />
 
         {/* Features */}
         <div className="mt-20 grid grid-cols-1 md:grid-cols-3 gap-8 max-w-5xl">

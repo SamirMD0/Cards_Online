@@ -1,9 +1,9 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import Navigation from '../components/Navigation';
-import RoomCard from '../components/RoomCard';
-import CreateRoomModal from '../components/CreateRoomModal';
+import Navigation from '../components/common/Navigation';
+import RoomCard from '../components/features/lobby/RoomCard';
+import CreateRoomModal from '../components/features/lobby/CreateRoomModal';
 import { socketService } from '../socket';
 import { roomCookies } from '../utils/roomCookies';
 
@@ -22,7 +22,7 @@ interface Room {
 }
 
 export default function Lobby() {
- const navigate = useNavigate();
+  const navigate = useNavigate();
   const { user } = useAuth();
   const [rooms, setRooms] = useState<Room[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -30,26 +30,21 @@ export default function Lobby() {
   const [isConnected, setIsConnected] = useState(false);
   const [error, setError] = useState('');
 
-  // ✅ NEW: Check for active room on mount
   const [isCheckingRoom, setIsCheckingRoom] = useState(true);
   const [showReconnectPrompt, setShowReconnectPrompt] = useState(false);
   const [activeRoom, setActiveRoom] = useState<any>(null);
 
   useEffect(() => {
-    // Connect socket
     if (!socketService.socket.connected) {
       console.log('[Lobby] Socket not connected, connecting...');
       socketService.connect();
     }
 
-    // ✅ NEW: Check for active room in cookies
     const checkActiveRoom = async () => {
       const room = roomCookies.getCurrentRoom();
       
       if (room) {
         console.log('[Lobby] Found active room in cookies:', room);
-        
-        // Ask server if this room still exists
         socketService.socket.emit('check_room_exists', { roomId: room.roomId });
       } else {
         console.log('[Lobby] No active room found');
@@ -61,7 +56,7 @@ export default function Lobby() {
       console.log('[Lobby] ✅ Connected to server:', socketService.socket.id);
       setIsConnected(true);
       socketService.getRooms();
-      checkActiveRoom(); // ✅ Check room on connect
+      checkActiveRoom();
     };
 
     const handleDisconnect = () => {
@@ -76,29 +71,21 @@ export default function Lobby() {
     const handleRoomCreated = (data: { roomId: string; roomCode: string }) => {
       console.log('[Lobby] Room created:', data);
 
-      // ✅ FIX: Save cookie and navigate directly
       if (user) {
         roomCookies.setCurrentRoom(data.roomId, data.roomCode, user.username);
       }
-
-      // No name prompt - backend already added us
-      // Wait for 'joined_room' event which will be emitted automatically
     };
 
     const handleJoinedRoom = (data: { roomId: string }) => {
       console.log('[Lobby] Joined room:', data.roomId);
-      
-      // ✅ Normal join, no reconnect flag
-      navigate(`/game/${data.roomId}`); // No state = fresh join
+      navigate(`/game/${data.roomId}`);
     };
 
-    // ✅ NEW: Handle when server detects we're already in game
     const handleShouldReconnect = (data: { roomId: string }) => {
       console.log('[Lobby] Server says we should reconnect to:', data.roomId);
       navigate(`/game/${data.roomId}`, { state: { reconnect: true } });
     };
 
-    // ✅ NEW: Handle room existence check
     const handleRoomExists = (data: { exists: boolean; roomId: string; gameState?: any }) => {
       console.log('[Lobby] Room exists check:', data);
       setIsCheckingRoom(false);
@@ -119,13 +106,12 @@ export default function Lobby() {
       setTimeout(() => setError(''), 4000);
     };
 
-    // Attach listeners
     socketService.socket.on('connect', handleConnect);
     socketService.socket.on('disconnect', handleDisconnect);
     socketService.onRoomsList(handleRoomsList);
     socketService.onRoomCreated(handleRoomCreated);
     socketService.onJoinedRoom(handleJoinedRoom);
-    socketService.socket.on('should_reconnect', handleShouldReconnect); // ✅ CRITICAL FIX
+    socketService.socket.on('should_reconnect', handleShouldReconnect);
     socketService.socket.on('room_exists', handleRoomExists);
     socketService.onError(handleError);
 
@@ -143,7 +129,7 @@ export default function Lobby() {
       clearInterval(interval);
       socketService.socket.off('connect', handleConnect);
       socketService.socket.off('disconnect', handleDisconnect);
-      socketService.socket.off('should_reconnect', handleShouldReconnect); // ✅ CRITICAL FIX
+      socketService.socket.off('should_reconnect', handleShouldReconnect);
       socketService.socket.off('room_exists', handleRoomExists);
       socketService.off('rooms_list');
       socketService.off('room_created');
@@ -153,7 +139,6 @@ export default function Lobby() {
   }, [navigate, user]);
 
   const handleCreateRoom = (roomName: string, maxPlayers: number) => {
-    // ✅ NEW: Check for active room first
     if (roomCookies.hasActiveRoom()) {
       const room = roomCookies.getCurrentRoom();
       setError(`You're already in room "${room?.roomCode}". Leave it first.`);
@@ -201,24 +186,19 @@ export default function Lobby() {
     const playerName = user.username;
     roomCookies.setCurrentRoom(roomId, targetRoom.roomCode, playerName);
 
-    // ✅ SIMPLIFIED: Let server decide if we should join or reconnect
-    // Server will emit 'joined_room' for new joins
-    // Server will emit 'should_reconnect' if we're already in the game
     console.log(`[Lobby] Attempting to join room ${roomId} as ${playerName}`);
     socketService.joinRoom(roomId, playerName);
   };
 
-  // ✅ NEW: Handle rejoin to active room
   const handleRejoinActiveRoom = () => {
     if (activeRoom) {
       console.log('[Lobby] Rejoining active room:', activeRoom.roomId);
       navigate(`/game/${activeRoom.roomId}`, { 
-        state: { reconnect: true }  // ✅ This tells Game.tsx to check reconnection
+        state: { reconnect: true }
       });
     }
   };
 
-  // ✅ NEW: Handle abandon active room
   const handleAbandonActiveRoom = () => {
     console.log('[Lobby] User abandoned active room');
     roomCookies.clearCurrentRoom();
@@ -249,7 +229,6 @@ export default function Lobby() {
     );
   }
 
-  // ✅ NEW: Show reconnect prompt if user has active room
   if (showReconnectPrompt && activeRoom) {
     return (
       <div className="min-h-screen bg-dark-900">
@@ -286,7 +265,6 @@ export default function Lobby() {
 
   return (
     <div className="min-h-screen bg-dark-900">
-      {/* Navigation */}
       <Navigation />
 
       {/* Connection Status */}

@@ -1,5 +1,5 @@
 // frontend/src/components/game/GameDebugPanel.tsx
-import { socketService } from '../../socket';
+import { socketService } from '../../../../socket';
 
 interface GameDebugPanelProps {
   handCount: number;

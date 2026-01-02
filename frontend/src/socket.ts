@@ -46,22 +46,19 @@ class SocketService {
     }
   }
 
-  // ADD THIS METHOD
   reconnect() {
     console.log('[Socket] Reconnecting with new token...');
     
-    // Disconnect old connection
     this.socket.disconnect();
     
-    // Update auth callback with new token
     this.socket.auth = (cb: any) => {
       const token = localStorage.getItem('token');
       cb({ token });
     };
     
-    // Reconnect
     this.socket.connect();
   }
+
   // Room Management
   getRooms() {
     this.socket.emit('get_rooms');
@@ -151,28 +148,26 @@ class SocketService {
   }
 
   checkReconnection() {
-  this.socket.emit('check_reconnection');
-}
+    this.socket.emit('check_reconnection');
+  }
 
+  onReconnectionResult(callback: (data: any) => void) {
+    this.socket.on('reconnection_result', callback);
+  }
 
+  onGameRestored(callback: (data: any) => void) {
+    this.socket.on('game_restored', callback);
+  }
 
-onReconnectionResult(callback: (data: any) => void) {
-  this.socket.on('reconnection_result', callback);
-}
+  onPlayerReconnected(callback: (data: any) => void) {
+    this.socket.on('player_reconnected', callback);
+  }
 
-onGameRestored(callback: (data: any) => void) {
-  this.socket.on('game_restored', callback);
-}
+  onReconnectionFailed(callback: (data: any) => void) {
+    this.socket.on('reconnection_failed', callback);
+  }
 
-onPlayerReconnected(callback: (data: any) => void) {
-  this.socket.on('player_reconnected', callback);
-}
-
-onReconnectionFailed(callback: (data: any) => void) {
-  this.socket.on('reconnection_failed', callback);
-}
-
-checkRoomExists(roomId: string) {
+  checkRoomExists(roomId: string) {
     this.socket.emit('check_room_exists', { roomId });
   }
 
@@ -184,7 +179,6 @@ checkRoomExists(roomId: string) {
     console.log('[Socket] Emitting reconnect_to_game for', roomId);
     this.socket.emit('reconnect_to_game', { roomId });
   }
-  
 }
 
 export const socketService = new SocketService();

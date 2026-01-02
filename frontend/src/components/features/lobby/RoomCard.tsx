@@ -1,4 +1,4 @@
-import PlayerAvatar from './PlayerAvatar';
+import PlayerAvatar from '../../common/PlayerAvatar';
 
 interface Player {
   id: string;
