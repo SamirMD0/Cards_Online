@@ -353,85 +353,115 @@ export default function Game() {
     );
   }
 
-   return (
-    <div className="min-h-screen bg-dark-900 pb-4">
-      <Navigation />
+  return (
+  <div className="min-h-screen bg-dark-900 flex flex-col">
+    <Navigation />
 
-      {notification && (
-        <div className="fixed top-20 sm:top-24 left-1/2 transform -translate-x-1/2 z-50 bg-uno-blue text-white px-4 sm:px-6 py-2 sm:py-3 rounded-lg shadow-lg text-sm sm:text-base max-w-xs sm:max-w-md text-center">
-          {notification}
-        </div>
-      )}
+    {notification && (
+      <div className="fixed top-20 sm:top-24 left-1/2 -translate-x-1/2 z-50 bg-uno-blue text-white px-4 sm:px-6 py-2 sm:py-3 rounded-lg shadow-lg text-sm sm:text-base max-w-xs sm:max-w-md text-center">
+        {notification}
+      </div>
+    )}
 
-      <GameDebugPanel
-        handCount={playerHand.length}
-        userId={userId}
-        isMyTurn={isMyTurn}
-        onRequestHand={requestHand}
-      />
+    <GameHeader
+      gameState={gameState}
+      isMyTurn={isMyTurn}
+      currentPlayerName={currentPlayer?.name}
+      turnTimeRemaining={turnTimeRemaining}
+    />
 
-      <GameHeader
-        gameState={gameState}
-        isMyTurn={isMyTurn}
-        currentPlayerName={currentPlayer?.name}
-        turnTimeRemaining={turnTimeRemaining}
-      />
+    {/* GAME AREA */}
+    <div className="relative w-full flex-1 bg-background overflow-hidden">
+      {/* Background pattern */}
+      <div className="absolute inset-0 opacity-10">
+        <div
+          className="absolute inset-0"
+          style={{
+            backgroundImage:
+              'radial-gradient(circle at 2px 2px, currentColor 1px, transparent 0)',
+            backgroundSize: '32px 32px',
+          }}
+        />
+      </div>
 
-      <div className="px-2 sm:px-4 max-w-7xl mx-auto">
-        <div className="relative w-full" style={{ perspective: "2000px" }}>
+      {/* Round Table */}
+      <div className="absolute left-1/2 top-[52%] -translate-x-1/2 -translate-y-1/2">
+        <div className="relative">
           <div
-            className="relative bg-gradient-to-br from-green-900 via-green-800 to-green-900 rounded-2xl sm:rounded-[3rem] shadow-2xl p-4 sm:p-8"
-            style={{
-              transform: "rotateX(15deg)",
-              minHeight: window.innerWidth < 640 ? "500px" : "650px",
-              boxShadow: "0 30px 60px rgba(0, 0, 0, 0.6), inset 0 2px 10px rgba(255, 255, 255, 0.1)",
-            }}
-          >
-            <div
-              className="absolute inset-0 rounded-2xl sm:rounded-[3rem] opacity-10"
-              style={{
-                backgroundImage: `repeating-linear-gradient(45deg, transparent, transparent 10px, rgba(255, 255, 255, 0.05) 10px, rgba(255, 255, 255, 0.05) 20px)`,
-              }}
-            />
+            className="
+              w-[92vw] h-[46vh]
+              sm:w-[80vw] sm:h-[55vh]
+              md:w-[70vw] md:h-[60vh]
+              lg:w-[60vw] lg:h-[65vh]
+              max-w-[520px]
+              max-h-[420px]
+              rounded-[50%]
+              table-felt
+              table-border-ring
+            "
+          />
 
-            {otherPlayers.map((player, index) => (
-              <OpponentHand
-                key={player.id}
-                player={player}
-                isCurrentTurn={gameState.currentPlayer === player.id}
-                position={getOpponentPosition(index)}
-              />
-            ))}
-
-            <GameTable
-              gameState={gameState}
-              isMyTurn={isMyTurn}
-              onDrawCard={handleDraw}
-            />
-
-            <PlayerHand
-              playerName={myPlayer?.name || "You"}
-              playerHand={playerHand}
-              isMyTurn={isMyTurn}
-              pendingDraw={gameState.pendingDraw}
-              onCardClick={handleCardClick}
-              onRequestHand={requestHand}
-            />
+          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-none opacity-20">
+            <span className="font-heading text-5xl font-bold text-white tracking-wider">
+              UNO
+            </span>
           </div>
         </div>
       </div>
 
-      <ColorPickerModal
-        isOpen={showColorPicker}
-        onClose={() => setShowColorPicker(false)}
-        onSelectColor={handleColorSelect}
+      {/* Opponent Hands */}
+      {otherPlayers.map((player, index) => (
+        <OpponentHand
+          key={player.id}
+          player={player}
+          isCurrentTurn={gameState.currentPlayer === player.id}
+          position={getOpponentPosition(index)}
+        />
+      ))}
+
+      {/* Center Table */}
+      <GameTable
+        gameState={gameState}
+        isMyTurn={isMyTurn}
+        onDrawCard={handleDraw}
       />
 
-      <GameOverModal
-        isOpen={showGameOver}
-        winner={winner}
-        onClose={handleLeaveRoom}
-      />
+      {/* Player Hand */}
+      <div className="absolute bottom-2 left-0 right-0">
+        <PlayerHand
+          playerName={myPlayer?.name || 'You'}
+          playerHand={playerHand}
+          isMyTurn={isMyTurn}
+          pendingDraw={gameState.pendingDraw}
+          onCardClick={handleCardClick}
+          onRequestHand={requestHand}
+        />
+      </div>
+
+      {/* Turn Indicator */}
+      {isMyTurn && (
+        <div className="fixed top-20 sm:top-24 left-1/2 -translate-x-1/2 z-50">
+          <div className="glass-panel px-6 py-2 rounded-full border-2 border-primary/50">
+            <span className="font-heading text-primary font-bold animate-pulse">
+              ⚡ It&apos;s Your Turn ⚡
+            </span>
+          </div>
+        </div>
+      )}
     </div>
-  );
+
+    <ColorPickerModal
+      isOpen={showColorPicker}
+      onClose={() => setShowColorPicker(false)}
+      onSelectColor={handleColorSelect}
+    />
+
+    <GameOverModal
+      isOpen={showGameOver}
+      winner={winner}
+      onClose={handleLeaveRoom}
+    />
+  </div>
+);
+
 }

@@ -1,5 +1,11 @@
 import { useState } from 'react';
-import styled, { css } from 'styled-components';
+import styled from 'styled-components';
+import ChooseColorCard from './ChooseColorCard';
+import ReverseCard from './ReverseCard';
+import Draw2Card from './Draw2';
+import Draw4Card from './Draw4';
+import SkipCard from './SkipCard';
+import { cn } from "../../../lib/utils";
 
 export type CardColor = 'red' | 'blue' | 'green' | 'yellow' | 'wild';
 export type CardValue = string | number;
@@ -12,7 +18,7 @@ export interface UnoCardProps {
   onClick?: () => void;
   disabled?: boolean;
   className?: string;
-  size?: CardSize; // Added proper typing
+  size?: CardSize;
 }
 
 const colorMap: Record<CardColor, string> = {
@@ -23,7 +29,6 @@ const colorMap: Record<CardColor, string> = {
   wild: '#111',
 };
 
-// Size configuration
 const sizeMap = {
   xs: { width: '30px', height: '46px', fontSize: '0.5rem', centerSize: '1rem', radius: '4px' },
   sm: { width: '60px', height: '90px', fontSize: '0.75rem', centerSize: '1.5rem', radius: '6px' },
@@ -38,10 +43,101 @@ export default function UnoCard({
   onClick,
   disabled = false,
   className = '',
-  size = 'md', // Default to medium
+  size = 'md',
 }: UnoCardProps) {
   const [hovered, setHovered] = useState(false);
 
+  // Route to specialized components when face-up
+  if (faceUp) {
+    const valueStr = String(value).toLowerCase();
+    
+    // Wild Draw 4 (wild color + wild_draw4 value)
+    if (color === 'wild' && valueStr === 'wild_draw4') {
+      return (
+        <CardWrapper
+          className={className}
+          onClick={!disabled ? onClick : undefined}
+          onMouseEnter={() => setHovered(true)}
+          onMouseLeave={() => setHovered(false)}
+          $hovered={hovered}
+          $disabled={disabled}
+          $size={size}
+        >
+          <Draw4Card />
+        </CardWrapper>
+      );
+    }
+
+    // Wild Choose Color (wild color + wild value)
+    if (color === 'wild' && valueStr === 'wild') {
+      return (
+        <CardWrapper
+          className={className}
+          onClick={!disabled ? onClick : undefined}
+          onMouseEnter={() => setHovered(true)}
+          onMouseLeave={() => setHovered(false)}
+          $hovered={hovered}
+          $disabled={disabled}
+          $size={size}
+        >
+          <ChooseColorCard />
+        </CardWrapper>
+      );
+    }
+
+    // Draw 2 (colored card with draw2 value)
+    if (valueStr === 'draw2') {
+      return (
+        <CardWrapper
+          className={className}
+          onClick={!disabled ? onClick : undefined}
+          onMouseEnter={() => setHovered(true)}
+          onMouseLeave={() => setHovered(false)}
+          $hovered={hovered}
+          $disabled={disabled}
+          $size={size}
+        >
+          <Draw2Card color={color as 'red' | 'blue' | 'green' | 'yellow'} />
+        </CardWrapper>
+      );
+    }
+
+    // Skip (colored card with skip value)
+    if (valueStr === 'skip') {
+      return (
+        <CardWrapper
+          className={className}
+          onClick={!disabled ? onClick : undefined}
+          onMouseEnter={() => setHovered(true)}
+          onMouseLeave={() => setHovered(false)}
+          $hovered={hovered}
+          $disabled={disabled}
+          $size={size}
+        >
+          <SkipCard color={color as 'red' | 'blue' | 'green' | 'yellow'} />
+        </CardWrapper>
+      );
+    }
+
+    // Reverse (colored card with reverse value)
+    if (valueStr === 'reverse') {
+      return (
+        <CardWrapper
+          className={className}
+          onClick={!disabled ? onClick : undefined}
+          onMouseEnter={() => setHovered(true)}
+          onMouseLeave={() => setHovered(false)}
+          $hovered={hovered}
+          $disabled={disabled}
+          $size={size}
+        >
+          <ReverseCard color={color as 'red' | 'blue' | 'green' | 'yellow'} />
+        </CardWrapper>
+      );
+    }
+  }
+
+  // Default rendering for number cards, back, and other types
   return (
     <Wrapper
       className={className}
@@ -83,7 +179,6 @@ const Wrapper = styled.div<{
   opacity: ${({ $disabled }) => ($disabled ? 0.8 : 1)};
   pointer-events: ${({ $disabled }) => ($disabled ? 'none' : 'auto')};
   
-  /* Use size map for dimensions */
   width: ${({ $size }) => sizeMap[$size].width};
   height: ${({ $size }) => sizeMap[$size].height};
 
@@ -116,7 +211,7 @@ const Wrapper = styled.div<{
     align-items: center;
     justify-content: center;
     overflow: hidden;
-    border: 2px solid white; /* Adds the classic white border */
+    border: 2px solid white;
   }
 
   .back {
@@ -169,4 +264,22 @@ const Wrapper = styled.div<{
     font-size: ${({ $size }) => sizeMap[$size].fontSize};
     transform: rotate(180deg);
   }
+`;
+
+// Wrapper for specialized cards with hover effect
+const CardWrapper = styled.div<{
+  $hovered: boolean;
+  $disabled: boolean;
+  $size: CardSize;
+}>`
+  cursor: ${({ $disabled }) => ($disabled ? 'not-allowed' : 'pointer')};
+  opacity: ${({ $disabled }) => ($disabled ? 0.8 : 1)};
+  pointer-events: ${({ $disabled }) => ($disabled ? 'none' : 'auto')};
+  width: ${({ $size }) => sizeMap[$size].width};
+  height: ${({ $size }) => sizeMap[$size].height};
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+  
+  transform: ${({ $hovered }) => $hovered ? 'translateY(-10%)' : 'translateY(0)'};
+  box-shadow: ${({ $hovered }) =>
+    $hovered ? '0 15px 30px rgba(0,0,0,0.5)' : '0 5px 10px rgba(0,0,0,0.3)'};
 `;

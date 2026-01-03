@@ -1,9 +1,22 @@
 import React from 'react';
 import styled from 'styled-components';
 
-const ReverseCard = () => {
+interface ReverseCardProps {
+  color?: 'red' | 'blue' | 'green' | 'yellow';
+}
+
+const colorMap = {
+  red: '#cb0323',
+  blue: '#0055ff',
+  green: '#1fa64a',
+  yellow: '#f2c400',
+};
+
+const ReverseCard: React.FC<ReverseCardProps> = ({ color = 'red' }) => {
+  const cardColor = colorMap[color];
+  
   return (
-    <StyledWrapper>
+    <StyledWrapper $color={cardColor}>
       <div className="card-container">
         <div className="card">
           <div className="back">
@@ -40,17 +53,22 @@ const ReverseCard = () => {
   );
 }
 
-const StyledWrapper = styled.div`
+const StyledWrapper = styled.div<{ $color: string }>`
+  width: 100%;
+  height: 100%;
+
   .card-container {
     perspective: 800px;
+    width: 100%;
+    height: 100%;
   }
 
   .card {
     position: relative;
-    width: 210px;
-    height: 332px;
+    width: 100%;
+    height: 100%;
     background: #fffffd;
-    border-radius: 1em;
+    border-radius: 0.5em;
     box-shadow: 0 0 6px -4px black;
     transition: 0.75s all;
     transform-style: preserve-3d;
@@ -58,39 +76,21 @@ const StyledWrapper = styled.div`
     user-select: none;
   }
 
-  .card::before {
-    content: "";
-    position: absolute;
-    bottom: -24px;
-    bottom: 0;
-    left: 0;
-    width: 210px;
-    height: 110px;
-    transform: translate(0em, 60%) rotateX(90deg) scale(0.8);
-    border-radius: 100%;
-    background-color: #000a;
-    z-index: -10;
-    filter: blur(24px);
-  }
-
-  .card-container:hover .card {
-    transform: rotateY(180deg);
-  }
-
   .back {
     position: absolute;
     display: flex;
     justify-content: center;
     align-items: center;
-    inset: 0.7em;
-    border-radius: 1.25em;
+    inset: 5%;
+    border-radius: 0.6em;
     background: #191f1f;
     overflow: hidden;
+    display: none;
   }
 
   .red {
     position: absolute;
-    background: #cb0323;
+    background: ${({ $color }) => $color};
     inset: 0;
     border-radius: 100%;
     transform-origin: center;
@@ -99,82 +99,20 @@ const StyledWrapper = styled.div`
 
   .back .text {
     position: absolute;
-    font-size: 5em;
+    font-size: 3em;
     font-weight: 800;
     color: #e4c713;
     transform-origin: center;
-    transform: rotate(-15deg) translateX(5px);
+    transform: rotate(-15deg) translateX(2px);
     text-shadow:
-      2px 2px #f1e8ad,
-      2px 1px #f1e8ad,
-      2px 0px #f1e8ad,
-      2px -1px #f1e8ad,
-      2px -2px #f1e8ad,
-      1px -2px #f1e8ad,
-      0px -2px #f1e8ad,
-      -1px -2px #f1e8ad,
-      -2px -2px #f1e8ad,
-      -2px -1px #f1e8ad,
-      -2px 0px #f1e8ad,
-      -2px 1px #f1e8ad,
-      -2px 2px #f1e8ad,
-      -12px 10px #191f1f,
-      -10px 10px #191f1f,
-      -9px 9.428571429px #191f1f,
-      -8px 8.857142857px #191f1f,
-      -7px 8.285714286px #191f1f,
-      -6px 7.714285714px #191f1f,
-      -5px 7.142857143px #191f1f,
-      -4px 6.571428572px #191f1f,
-      -3px 6px #191f1f,
-      -2px 5.428571429px #191f1f,
-      -1px 4.857142857px #191f1f,
-      0px 4.285714286px #191f1f,
-      1px 3.714285715px #191f1f,
-      2px 3.142857143px #191f1f,
-      3px 2.571428572px #191f1f,
-      4px 2px #191f1f,
-      4px -4px #191f1f,
-      -4px -4px #191f1f,
-      -5px -3px #191f1f,
-      -6px -2px #191f1f,
-      -7px -1px #191f1f,
-      -8px 0px #191f1f,
-      -9px 1px #191f1f,
-      -10px 2px #191f1f,
-      -11px 3px #191f1f,
-      -12px 4px #191f1f,
-      -14px 4px #fffffd,
-      -13px 3px #fffffd,
-      -12px 2px #fffffd,
-      -11px 1px #fffffd,
-      -10px 0px #fffffd,
-      -9px -1px #fffffd,
-      -8px -2px #fffffd,
-      -7px -3px #fffffd,
-      -6px -4px #fffffd,
-      -5px -5px #fffffd,
-      -4px -6px #fffffd,
-      -3px -6px #fffffd,
-      0px -6px #fffffd,
-      3px -6px #fffffd,
-      6px -6px #fffffd,
-      -14px 12px #fffffd,
-      -8px 12px #fffffd,
-      -7px 11.5px #fffffd,
-      -6px 11px #fffffd,
-      -5px 10.5px #fffffd,
-      -4px 10px #fffffd,
-      -3px 9.5px #fffffd,
-      -2px 9px #fffffd,
-      -1px 8.5px #fffffd,
-      0px 8px #fffffd,
-      1px 7.5px #fffffd,
-      2px 7px #fffffd,
-      3px 6.5px #fffffd,
-      4px 6px #fffffd,
-      5px 5.5px #fffffd,
-      6px 4px #fffffd;
+      1px 1px #f1e8ad,
+      1px 0px #f1e8ad,
+      1px -1px #f1e8ad,
+      0px -1px #f1e8ad,
+      -1px -1px #f1e8ad,
+      -1px 0px #f1e8ad,
+      -1px 1px #f1e8ad,
+      -6px 5px #191f1f;
   }
 
   .front {
@@ -182,40 +120,40 @@ const StyledWrapper = styled.div`
     display: flex;
     justify-content: center;
     align-items: center;
-    inset: 0.7em;
-    border-radius: 1.25em;
-    background: #cb0323;
+    inset: 5%;
+    border-radius: 0.6em;
+    background: ${({ $color }) => $color};
     overflow: hidden;
-    transform: rotateY(180deg);
     backface-visibility: hidden;
     -webkit-backface-visibility: hidden;
   }
 
   .front .red {
-    border: 0.7em solid #fffffd;
+    border: 0.35em solid #fffffd;
     transform: scale(0.92, 0.875) skewX(-22.5deg);
   }
 
   .text-center {
     position: absolute;
-    width: 12em;
+    width: 60%;
     color: white;
   }
 
   .text-top {
     position: absolute;
-    top: -1em;
-    left: -1.25em;
-    width: 7em;
+    top: -5%;
+    left: -8%;
+    width: 35%;
     color: white;
   }
 
   .text-bottom {
     position: absolute;
-    bottom: -1em;
-    right: -1.5em;
-    width: 7em;
+    bottom: -5%;
+    right: -8%;
+    width: 35%;
     color: white;
-  }`;
+  }
+`;
 
 export default ReverseCard;

@@ -29,9 +29,12 @@ const ChooseColorCard = () => {
 }
 
 const StyledWrapper = styled.div`
+  width: 100%;
+  height: 100%;
+
   .card {
-    width: 11em;
-    height: 14.8em;
+    width: 100%;
+    height: 100%;
     position: relative;
     background: #28282B;
     display: flex;
@@ -44,8 +47,8 @@ const StyledWrapper = styled.div`
   }
 
   .card .circle {
-    width: 8em;
-    height: 14em;
+    width: 70%;
+    height: 85%;
     border-radius: 50%;
     transform: skew(-25deg);
     border: 4px solid white;
@@ -55,19 +58,19 @@ const StyledWrapper = styled.div`
 
   .card .circle.small {
     position: absolute;
-    width: 1.5em;
-    height: 3em;
-    border: 1px solid white;
+    width: 15%;
+    height: 20%;
+    border: 2px solid white;
   }
 
   .card .circle.top-left {
-    top: 0.3em;
-    left: 0.6em;
+    top: 5%;
+    left: 10%;
   }
 
   .card .circle.bottom-right {
-    bottom: 0.3em;
-    right: 0.6em;
+    bottom: 5%;
+    right: 10%;
   }
 
   .card:hover {
@@ -99,12 +102,11 @@ const StyledWrapper = styled.div`
     border-bottom-right-radius: 100%;
   }
 
-  /* glider animation */
   .card:before {
     content: '';
     position: absolute;
     height: 130%;
-    width: 1em;
+    width: 8%;
     background-color: aliceblue;
     opacity: 0.14;
     animation: glider 1.8s infinite linear;
@@ -115,7 +117,7 @@ const StyledWrapper = styled.div`
     content: '';
     position: absolute;
     height: 120%;
-    width: 0.8em;
+    width: 6%;
     background-color: aliceblue;
     opacity: 0.1;
     animation: glider 1.8s infinite linear;
@@ -129,6 +131,7 @@ const StyledWrapper = styled.div`
     100% {
       transform: rotate(45deg) translate(18em, -2.8em);
     }
-  }`;
+  }
+`;
 
 export default ChooseColorCard;

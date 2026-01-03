@@ -2,11 +2,12 @@
 import UnoCard from '../../uno-cards/UnoCard';
 import PlayerAvatar from '../../../common/PlayerAvatar';
 import type { Player } from '../../../../types';
+import { cn } from '../../../../lib/utils';
 
 interface OpponentHandProps {
   player: Player;
   isCurrentTurn: boolean;
-  position: 'top' | 'left' | 'right';
+  position: 'top' | 'left' | 'right' | 'top-left' | 'top-right';
 }
 
 export default function OpponentHand({ 
@@ -14,61 +15,91 @@ export default function OpponentHand({
   isCurrentTurn, 
   position 
 }: OpponentHandProps) {
-  const cards = Array.from({ length: Math.min(player.handCount, 6) }, (_, i) => i);
+  const maxVisibleCards = position === 'top' ? 7 : 5;
+  const cards = Array.from({ length: Math.min(player.handCount, maxVisibleCards) }, (_, i) => i);
   
-  const positionStyles = {
-    top: 'top-2 sm:top-4 left-1/2 -translate-x-1/2',
-    left: 'left-2 sm:left-4 top-1/2 -translate-y-1/2',
-    right: 'right-2 sm:right-4 top-1/2 -translate-y-1/2'
+  const positionStyles: Record<string, string> = {
+    top: 'top-[3%] left-1/2 -translate-x-1/2',
+    left: 'left-[3%] top-1/2 -translate-y-1/2',
+    right: 'right-[3%] top-1/2 -translate-y-1/2',
+    'top-left': 'top-[15%] left-[10%]',
+    'top-right': 'top-[15%] right-[10%]',
   };
 
-  // Cards direction: row for top, column for left/right
-  const cardDirection = {
-    top: 'flex-row',
-    left: 'flex-col',
-    right: 'flex-col'
-  };
-
-  const shouldRotate = position === 'left' || position === 'right';
+  const isVertical = position === 'left' || position === 'right';
+  const fanSpread = isVertical ? 8 : 12;
 
   return (
-    <div className={`absolute ${positionStyles[position]} z-20`}>
-      <div className={`flex ${position === 'top' ? 'flex-col' : position === 'left' ? 'flex-row' : 'flex-row-reverse'} items-center gap-2`}>
-        {/* Player Info */}
-        <div className={`flex items-center gap-2 bg-gray-800/95 px-2 sm:px-3 py-1.5 sm:py-2 rounded-full border ${
-          isCurrentTurn ? 'border-yellow-400 ring-2 ring-yellow-400/50 shadow-lg shadow-yellow-400/20' : 'border-gray-700'
-        }`}>
+    <div className={cn('absolute z-20', positionStyles[position])}>
+      <div className={cn(
+        'flex items-center gap-3',
+        isVertical ? 'flex-col' : 'flex-col',
+        position === 'left' && 'flex-row',
+        position === 'right' && 'flex-row-reverse'
+      )}>
+        {/* Player Info Badge */}
+        <div className={cn(
+          'glass-panel px-3 py-2 rounded-full flex items-center gap-2',
+          'transition-all duration-300',
+          isCurrentTurn && 'ring-2 ring-primary turn-indicator shadow-lg shadow-primary/30'
+        )}>
           <PlayerAvatar name={player.name} size="sm" />
-          <div className="text-white text-xs sm:text-sm whitespace-nowrap">
-            <p className="font-semibold">{player.name}</p>
-            <p className="text-[10px] sm:text-xs text-gray-400">{player.handCount} cards</p>
+          <div className="text-white">
+            <p className="font-heading font-semibold text-xs sm:text-sm whitespace-nowrap">
+              {player.name}
+            </p>
+            <p className="text-[10px] sm:text-xs text-muted-foreground">
+              {player.handCount} cards
+            </p>
           </div>
+          {isCurrentTurn && (
+            <span className="text-primary text-xs animate-pulse">⭐</span>
+          )}
         </div>
 
-        {/* Cards Fan - Vertical for left/right, horizontal for top */}
-        <div className={`flex ${cardDirection[position]} gap-1`}>
-          {cards.map((i) => (
-            <div 
-              key={i}
-              className={shouldRotate ? 'transform -rotate-90' : ''}
-            >
-              <UnoCard
-                color="wild"
-                value=""
-                faceUp={false}
-                size="sm"
-                disabled
-                className="shadow-md"
-              />
-            </div>
-          ))}
-          {player.handCount > 6 && (
-            <div 
-              className={`w-8 h-12 bg-gray-700/90 rounded-md flex items-center justify-center text-white text-[10px] border border-gray-600 ${
-                shouldRotate ? 'transform -rotate-90' : ''
-              }`}
-            >
-              +{player.handCount - 6}
+        {/* Cards Fan */}
+        <div className={cn(
+          'flex relative',
+          isVertical ? 'flex-col -space-y-10' : 'flex-row'
+        )}>
+          {cards.map((i, index) => {
+            const offset = (index - (cards.length - 1) / 2) * fanSpread;
+            const rotation = isVertical 
+              ? (position === 'left' ? -90 : 90)
+              : offset * 0.5;
+            
+            return (
+              <div 
+                key={i}
+                style={{
+                  transform: isVertical 
+                    ? `rotate(${rotation}deg)` 
+                    : `rotate(${rotation}deg) translateX(${offset}px)`,
+                  marginLeft: !isVertical && i > 0 ? '-1.5rem' : 0,
+                }}
+                className="transition-transform duration-200"
+              >
+                <UnoCard
+                  color="wild"
+                  value=""
+                  faceUp={false}
+                  size="xs"
+                  disabled
+                  className="shadow-md"
+                />
+              </div>
+            );
+          })}
+          
+          {player.handCount > maxVisibleCards && (
+            <div className={cn(
+              'flex items-center justify-center',
+              'w-6 h-9 sm:w-8 sm:h-12 rounded-md',
+              'bg-secondary/90 text-white text-[10px] sm:text-xs font-bold',
+              'border border-border shadow-md',
+              isVertical && (position === 'left' ? '-rotate-90' : 'rotate-90')
+            )}>
+              +{player.handCount - maxVisibleCards}
             </div>
           )}
         </div>
