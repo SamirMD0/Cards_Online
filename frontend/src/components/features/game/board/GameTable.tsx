@@ -1,4 +1,5 @@
-// frontend/src/components/game/GameTable.tsx
+// frontend/src/components/features/game/board/GameTable.tsx
+
 import UnoCard, { CardColor } from '../../uno-cards/UnoCard';
 import type { GameState } from '../../../../types';
 
@@ -21,12 +22,14 @@ export default function GameTable({
   isMyTurn, 
   onDrawCard 
 }: GameTableProps) {
+  const isMobile = typeof window !== 'undefined' && window.innerWidth < 640;
+  
   return (
     <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-10">
-      <div className="flex items-center gap-4 sm:gap-8 md:gap-12">
-        {/* Draw Pile */}
+      <div className="flex items-center gap-3 sm:gap-4 md:gap-8 lg:gap-12">
+        {/* Draw Pile - BIGGER on mobile */}
         <div className="text-center group">
-          <p className="text-white/80 mb-2 font-heading font-semibold text-xs sm:text-sm tracking-wide">
+          <p className="text-white/80 mb-1 sm:mb-2 font-heading font-semibold text-xs sm:text-xs md:text-sm tracking-wide">
             DRAW
           </p>
           <button
@@ -34,14 +37,14 @@ export default function GameTable({
             disabled={!isMyTurn}
             className={cn(
               "relative transition-transform duration-200",
-              isMyTurn && "hover:scale-105 hover:-translate-y-1"
+              isMyTurn && "hover:scale-105 hover:-translate-y-1 active:scale-95"
             )}
           >
-            {/* Stacked cards effect */}
-            <div className="absolute top-1 left-1 opacity-60">
+            {/* Stacked cards effect - Simplified on mobile */}
+            <div className="hidden sm:block absolute top-1 left-1 opacity-60">
               <UnoCard color="wild" value="" faceUp={false} disabled size="sm" />
             </div>
-            <div className="absolute top-0.5 left-0.5 opacity-80">
+            <div className="hidden sm:block absolute top-0.5 left-0.5 opacity-80">
               <UnoCard color="wild" value="" faceUp={false} disabled size="sm" />
             </div>
             <UnoCard
@@ -49,37 +52,37 @@ export default function GameTable({
               value=""
               faceUp={false}
               disabled={!isMyTurn}
-              size="sm"
+              size={isMobile ? 'sm' : 'sm'}
               className={isMyTurn ? "ring-2 ring-primary/50 animate-pulse-ring" : ""}
             />
-            <div className="absolute -bottom-1 -right-1 bg-secondary text-white text-[10px] sm:text-xs px-2 py-0.5 rounded-full font-bold border border-border shadow-lg">
+            <div className="absolute -bottom-1 -right-1 bg-secondary text-white text-xs sm:text-[10px] md:text-xs px-2 sm:px-2 py-0.5 rounded-full font-bold border border-border shadow-lg">
               {gameState.deckCount}
             </div>
           </button>
         </div>
 
-        {/* Current Color Indicator */}
-        <div className="flex flex-col items-center gap-2 sm:gap-3">
-          <p className="text-white/80 text-xs sm:text-sm font-heading font-semibold tracking-wide">
+        {/* Current Color Indicator - BIGGER on mobile */}
+        <div className="flex flex-col items-center gap-1 sm:gap-2 md:gap-3">
+          <p className="text-white/80 text-xs sm:text-xs md:text-sm font-heading font-semibold tracking-wide">
             COLOR
           </p>
           <div 
-            className="w-10 h-10 sm:w-14 sm:h-14 rounded-full border-4 border-white/40 shadow-xl animate-float"
+            className="w-12 h-12 sm:w-10 sm:h-10 md:w-14 md:h-14 rounded-full border-3 sm:border-4 border-white/40 shadow-xl animate-float"
             style={{ 
               background: gameState.currentColor ? colorMap[gameState.currentColor] : 'white'
             }}
           />
         </div>
 
-        {/* Discard Pile */}
+        {/* Discard Pile - BIGGER on mobile */}
         <div className="text-center">
-          <p className="text-white/80 mb-2 font-heading font-semibold text-xs sm:text-sm tracking-wide">
+          <p className="text-white/80 mb-1 sm:mb-2 font-heading font-semibold text-xs sm:text-xs md:text-sm tracking-wide">
             DISCARD
           </p>
           <div className="relative">
-            {/* Shadow cards underneath */}
-            <div className="absolute top-1 left-1 opacity-30">
-              <div className="w-10 h-14 sm:w-12 sm:h-[4.5rem] rounded-lg bg-gray-700" />
+            {/* Shadow cards - Hidden on mobile */}
+            <div className="hidden sm:block absolute top-1 left-1 opacity-30">
+              <div className="w-8 h-12 sm:w-10 sm:h-14 md:w-12 md:h-[4.5rem] rounded-lg bg-gray-700" />
             </div>
             {gameState.topCard && (
               <UnoCard
@@ -87,7 +90,7 @@ export default function GameTable({
                 value={gameState.topCard.value}
                 faceUp={true}
                 disabled
-                size="sm"
+                size={isMobile ? 'sm' : 'sm'}
                 className="shadow-2xl card-glow"
               />
             )}

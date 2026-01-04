@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useAuth } from '../context/AuthContext';
+// import { useAuth } from '../context/AuthContext';
 import Navigation from '../components/common/Navigation';
 import PlayerAvatar from '../components/common/PlayerAvatar';
 
@@ -18,7 +18,6 @@ interface FriendRequest {
 }
 
 export default function Friends() {
-  const { user } = useAuth();
   const [friends, setFriends] = useState<Friend[]>([]);
   const [requests, setRequests] = useState<FriendRequest[]>([]);
   const [sentRequests, setSentRequests] = useState<any[]>([]);

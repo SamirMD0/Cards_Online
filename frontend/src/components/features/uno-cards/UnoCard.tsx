@@ -5,7 +5,6 @@ import ReverseCard from './ReverseCard';
 import Draw2Card from './Draw2';
 import Draw4Card from './Draw4';
 import SkipCard from './SkipCard';
-import { cn } from "../../../lib/utils";
 
 export type CardColor = 'red' | 'blue' | 'green' | 'yellow' | 'wild';
 export type CardValue = string | number;

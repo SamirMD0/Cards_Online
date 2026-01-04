@@ -4,6 +4,8 @@ interface PlayerAvatarProps {
   name: string;
   size?: 'sm' | 'md' | 'lg';
   className?: string;
+  isHost?: boolean;
+  isReady?: boolean;
 }
 
 const sizeStyles = {
@@ -28,21 +30,35 @@ function getColorFromName(name: string): string {
   return avatarColors[hash % avatarColors.length];
 }
 
-export default function PlayerAvatar({ name, size = 'md', className }: PlayerAvatarProps) {
+export default function PlayerAvatar({ name, size = 'md', className, isHost, isReady }: PlayerAvatarProps) {
   const initials = name.slice(0, 2).toUpperCase();
   const colorClass = getColorFromName(name);
 
   return (
-    <div
-      className={cn(
-        sizeStyles[size],
-        'rounded-full flex items-center justify-center font-bold text-white shadow-lg',
-        `bg-gradient-to-br ${colorClass}`,
-        'border-2 border-white/30',
-        className
+    <div className="relative">
+      <div
+        className={cn(
+          sizeStyles[size],
+          'rounded-full flex items-center justify-center font-bold text-white shadow-lg',
+          `bg-gradient-to-br ${colorClass}`,
+          'border-2 border-white/30',
+          className
+        )}
+      >
+        {initials}
+      </div>
+      {/* Host indicator */}
+      {isHost && (
+        <div className="absolute -top-1 -right-1 bg-yellow-500 rounded-full p-0.5">
+          <span className="text-xs">👑</span>
+        </div>
       )}
-    >
-      {initials}
+      {/* Ready indicator */}
+      {isReady && (
+        <div className="absolute -bottom-1 -right-1 bg-green-500 rounded-full p-0.5">
+          <span className="text-xs">✓</span>
+        </div>
+      )}
     </div>
   );
 }

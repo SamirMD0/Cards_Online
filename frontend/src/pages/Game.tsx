@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { useParams, useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import Navigation from "../components/common/Navigation";
-import GameDebugPanel from "../components/features/game/ui/GameDebugPanel";
+// import GameDebugPanel from "../components/features/game/ui/GameDebugPanel";
 import GameHeader from "../components/features/game/ui/GameHeader";
 import GameTable from "../components/features/game/board/GameTable";
 import PlayerHand from "../components/features/game/board/PlayerHand";
@@ -34,7 +34,6 @@ export default function Game() {
   const [showReconnectModal, setShowReconnectModal] = useState(false);
   const [isReconnecting, setIsReconnecting] = useState(false);
   const [canReconnect, setCanReconnect] = useState(false);
-  const [reconnectRoomId, setReconnectRoomId] = useState<string | null>(null);
 
   const [turnTimeRemaining, setTurnTimeRemaining] = useState<number>(30000);
   const userId = user?.id || null;
@@ -247,10 +246,8 @@ export default function Game() {
   // ========================================
 
   const handleReconnect = () => {
-    if (reconnectRoomId) {
-      console.log('[Game] 🔄 Reconnecting to:', reconnectRoomId);
-      socketService.reconnectToGame(reconnectRoomId);
-    }
+    // This function is no longer used since reconnectRoomId was removed
+    console.log('[Game] 🔄 Reconnect function called but no room ID available');
   };
 
   const handleDismissReconnect = () => {
@@ -353,115 +350,122 @@ export default function Game() {
     );
   }
 
-  return (
-  <div className="min-h-screen bg-dark-900 flex flex-col">
-    <Navigation />
+return (
+    <div className="min-h-screen bg-dark-900 flex flex-col overflow-hidden">
+      <Navigation />
 
-    {notification && (
-      <div className="fixed top-20 sm:top-24 left-1/2 -translate-x-1/2 z-50 bg-uno-blue text-white px-4 sm:px-6 py-2 sm:py-3 rounded-lg shadow-lg text-sm sm:text-base max-w-xs sm:max-w-md text-center">
-        {notification}
-      </div>
-    )}
-
-    <GameHeader
-      gameState={gameState}
-      isMyTurn={isMyTurn}
-      currentPlayerName={currentPlayer?.name}
-      turnTimeRemaining={turnTimeRemaining}
-    />
-
-    {/* GAME AREA */}
-    <div className="relative w-full flex-1 bg-background overflow-hidden">
-      {/* Background pattern */}
-      <div className="absolute inset-0 opacity-10">
-        <div
-          className="absolute inset-0"
-          style={{
-            backgroundImage:
-              'radial-gradient(circle at 2px 2px, currentColor 1px, transparent 0)',
-            backgroundSize: '32px 32px',
-          }}
-        />
-      </div>
-
-      {/* Round Table */}
-      <div className="absolute left-1/2 top-[52%] -translate-x-1/2 -translate-y-1/2">
-        <div className="relative">
-          <div
-            className="
-              w-[92vw] h-[46vh]
-              sm:w-[80vw] sm:h-[55vh]
-              md:w-[70vw] md:h-[60vh]
-              lg:w-[60vw] lg:h-[65vh]
-              max-w-[520px]
-              max-h-[420px]
-              rounded-[50%]
-              table-felt
-              table-border-ring
-            "
-          />
-
-          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-none opacity-20">
-            <span className="font-heading text-5xl font-bold text-white tracking-wider">
-              UNO
-            </span>
-          </div>
-        </div>
-      </div>
-
-      {/* Opponent Hands */}
-      {otherPlayers.map((player, index) => (
-        <OpponentHand
-          key={player.id}
-          player={player}
-          isCurrentTurn={gameState.currentPlayer === player.id}
-          position={getOpponentPosition(index)}
-        />
-      ))}
-
-      {/* Center Table */}
-      <GameTable
-        gameState={gameState}
-        isMyTurn={isMyTurn}
-        onDrawCard={handleDraw}
-      />
-
-      {/* Player Hand */}
-      <div className="absolute bottom-2 left-0 right-0">
-        <PlayerHand
-          playerName={myPlayer?.name || 'You'}
-          playerHand={playerHand}
-          isMyTurn={isMyTurn}
-          pendingDraw={gameState.pendingDraw}
-          onCardClick={handleCardClick}
-          onRequestHand={requestHand}
-        />
-      </div>
-
-      {/* Turn Indicator */}
-      {isMyTurn && (
-        <div className="fixed top-20 sm:top-24 left-1/2 -translate-x-1/2 z-50">
-          <div className="glass-panel px-6 py-2 rounded-full border-2 border-primary/50">
-            <span className="font-heading text-primary font-bold animate-pulse">
-              ⚡ It&apos;s Your Turn ⚡
-            </span>
-          </div>
+      {/* Notification */}
+      {notification && (
+        <div className="fixed top-16 sm:top-20 left-1/2 -translate-x-1/2 z-50 bg-uno-blue text-white px-3 sm:px-6 py-2 sm:py-3 rounded-lg shadow-lg text-xs sm:text-base max-w-[90vw] sm:max-w-md text-center">
+          {notification}
         </div>
       )}
+
+      {/* Header */}
+      <div className="pt-12 sm:pt-20">
+        <GameHeader
+          gameState={gameState}
+          isMyTurn={isMyTurn}
+          currentPlayerName={currentPlayer?.name}
+          turnTimeRemaining={turnTimeRemaining}
+        />
+      </div>
+
+      {/* GAME AREA */}
+      <div className="relative flex-1 bg-background overflow-hidden">
+        {/* Background pattern */}
+        <div className="absolute inset-0 opacity-5 sm:opacity-10">
+          <div
+            className="absolute inset-0"
+            style={{
+              backgroundImage: 'radial-gradient(circle at 2px 2px, currentColor 1px, transparent 0)',
+              backgroundSize: '24px 24px',
+            }}
+          />
+        </div>
+
+        {/* CENTRAL TABLE AREA 
+          Combines the felt background and the GameTable (cards)
+          to ensure they stay perfectly aligned.
+          - Mobile: top-[42%] (higher up to leave room for hand)
+          - Desktop: top-[50%] (centered)
+        */}
+        <div className="absolute left-1/2 top-[42%] sm:top-[50%] -translate-x-1/2 -translate-y-1/2 flex items-center justify-center z-10">
+          <div className="relative">
+            {/* The Green Felt Table Background */}
+            <div
+              className="
+                w-[85vw] h-[32vh]
+                sm:w-[75vw] sm:h-[50vh]
+                md:w-[65vw] md:h-[55vh]
+                lg:w-[55vw] lg:h-[60vh]
+                max-w-[480px]
+                max-h-[380px]
+                rounded-[50%]
+                table-felt
+                table-border-ring
+              "
+            />
+
+            {/* The Actual Game Table (Draw/Discard Piles) - Centered on top of the felt */}
+            <div className="absolute inset-0 flex items-center justify-center">
+              <GameTable
+                gameState={gameState}
+                isMyTurn={isMyTurn}
+                onDrawCard={handleDraw}
+              />
+            </div>
+          </div>
+        </div>
+
+        {/* Opponent Hands - Positioned around the edges */}
+        <div className="block">
+          {otherPlayers.map((player, index) => (
+            <OpponentHand
+              key={player.id}
+              player={player}
+              isCurrentTurn={gameState.currentPlayer === player.id}
+              position={getOpponentPosition(index)}
+            />
+          ))}
+        </div>
+
+        {/* Player Hand - Fixed at bottom */}
+        <div className="fixed bottom-0 left-0 right-0 z-30">
+          <PlayerHand
+            playerName={myPlayer?.name || 'You'}
+            playerHand={playerHand}
+            isMyTurn={isMyTurn}
+            pendingDraw={gameState.pendingDraw}
+            onCardClick={handleCardClick}
+            onRequestHand={requestHand}
+          />
+        </div>
+
+        {/* Turn Indicator */}
+        {isMyTurn && (
+          <div className="fixed top-12 sm:top-20 left-1/2 -translate-x-1/2 z-40">
+            <div className="glass-panel px-4 sm:px-6 py-1.5 sm:py-2 rounded-full border-2 border-primary/50">
+              <span className="font-heading text-primary font-bold text-sm sm:text-base animate-pulse">
+                ⚡ Your Turn ⚡
+              </span>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Modals */}
+      <ColorPickerModal
+        isOpen={showColorPicker}
+        onClose={() => setShowColorPicker(false)}
+        onSelectColor={handleColorSelect}
+      />
+
+      <GameOverModal
+        isOpen={showGameOver}
+        winner={winner}
+        onClose={handleLeaveRoom}
+      />
     </div>
-
-    <ColorPickerModal
-      isOpen={showColorPicker}
-      onClose={() => setShowColorPicker(false)}
-      onSelectColor={handleColorSelect}
-    />
-
-    <GameOverModal
-      isOpen={showGameOver}
-      winner={winner}
-      onClose={handleLeaveRoom}
-    />
-  </div>
-);
-
+  );
 }
