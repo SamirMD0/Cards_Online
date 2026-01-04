@@ -4,24 +4,18 @@ import { authMiddleware } from '../middleware/auth.js';
 
 const router = express.Router();
 
+// ✅ FREE TIER: Cross-origin cookie configuration
 const getCookieOptions = () => {
-  const options: any = {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
-    sameSite: process.env.NODE_ENV === 'production' ? 'strict' as const : 'lax' as const,
-    maxAge: 7 * 24 * 60 * 60 * 1000,
+  const isProduction = process.env.NODE_ENV === 'production';
+  
+  return {
+    httpOnly: true,                    // ✅ XSS protection
+    secure: isProduction,              // ✅ HTTPS only in production
+    sameSite: 'none' as const,         // ✅ CRITICAL: Allow cross-origin (GitHub Pages → Fly.io)
+    maxAge: 7 * 24 * 60 * 60 * 1000,  // 7 days
     path: '/',
+    // ⚠️ NO domain setting (causes issues with Fly.io)
   };
-
-  // ⚠️ SECURITY NOTE: Domain setting for production
-  // Only set explicit domain if needed for subdomain sharing
-  // Test thoroughly with your deployment setup
-  // Uncomment and adjust if required:
-  // if (process.env.NODE_ENV === 'production' && process.env.COOKIE_DOMAIN) {
-  //   options.domain = process.env.COOKIE_DOMAIN;
-  // }
-
-  return options;
 };
 
 /**
@@ -34,7 +28,7 @@ router.post('/register', async (req, res) => {
     
     const { user, token } = await AuthService.register(username, email, password);
     
-    // Set httpOnly cookie
+    // Set httpOnly cookie with cross-origin support
     res.cookie('token', token, getCookieOptions());
     
     res.json({ user, token });
@@ -57,7 +51,7 @@ router.post('/login', async (req, res) => {
     
     const { user, token } = await AuthService.login(usernameOrEmail, password);
     
-    // Set httpOnly cookie
+    // Set httpOnly cookie with cross-origin support
     res.cookie('token', token, getCookieOptions());
     
     res.json({ user, token });
@@ -82,7 +76,7 @@ router.post('/logout', authMiddleware, async (req, res) => {
       await AuthService.logout(token);
     }
     
-    res.clearCookie('token');
+    res.clearCookie('token', getCookieOptions());
     res.json({ success: true, message: 'Logged out successfully' });
     
   } catch (error: any) {
@@ -98,7 +92,7 @@ router.post('/logout', authMiddleware, async (req, res) => {
 router.post('/logout-all', authMiddleware, async (req, res) => {
   try {
     await AuthService.logoutAll(req.user!.id);
-    res.clearCookie('token');
+    res.clearCookie('token', getCookieOptions());
     res.json({ success: true, message: 'Logged out from all devices' });
   } catch (error: any) {
     console.error('[Auth API] Logout all error:', error);
@@ -118,8 +112,6 @@ router.get('/sessions', authMiddleware, async (req, res) => {
     res.status(500).json({ error: 'Failed to get sessions' });
   }
 });
-
-
 
 /**
  * GET /api/auth/me

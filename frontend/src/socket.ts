@@ -1,6 +1,15 @@
 import { io, Socket } from 'socket.io-client';
 
-const SERVER_URL = import.meta.env.VITE_SERVER_URL || 'http://localhost:3001';
+// ✅ FREE TIER: Use environment variable (NO localhost fallback)
+const SERVER_URL = import.meta.env.VITE_SERVER_URL;
+
+if (!SERVER_URL) {
+  throw new Error(
+    'FATAL: VITE_SERVER_URL not set. ' +
+    'Create frontend/.env.production with: ' +
+    'VITE_SERVER_URL=https://your-app.fly.dev'
+  );
+}
 
 class SocketService {
   public socket: Socket;
@@ -11,6 +20,7 @@ class SocketService {
       reconnection: true,
       reconnectionAttempts: 5,
       reconnectionDelay: 1000,
+      timeout: 10000,  // ✅ Faster timeout for free tier cold starts
       auth: (cb) => {
         const token = localStorage.getItem('token');
         cb({ token });
@@ -31,6 +41,7 @@ class SocketService {
 
     this.socket.on('connect_error', (error) => {
       console.error('Connection error:', error);
+      console.warn('⚠️ If server is on free tier, it may take 10-30s to wake up');
     });
   }
 

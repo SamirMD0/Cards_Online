@@ -2,8 +2,9 @@ import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import path from 'path';
 
+// ✅ FREE TIER: GitHub Pages configuration
 export default defineConfig({
-  base: '/Cards_Online/',
+  base: '/Cards_Online/',  // ✅ CRITICAL: Must match GitHub repo name
   plugins: [react()],
   server: {
     port: 5173,
@@ -20,7 +21,8 @@ export default defineConfig({
   },
   build: {
     outDir: 'dist',
-    sourcemap: true,
+    sourcemap: false,  // ✅ Reduce bundle size
+    minify: 'terser',
     rollupOptions: {
       output: {
         manualChunks: {

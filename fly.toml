@@ -1,0 +1,58 @@
+# ===================================
+# Fly.io FREE TIER Configuration
+# ===================================
+# ZERO COST - Scales to zero when idle
+# Restarts on first request (cold start)
+
+app = "uno-online-backend"
+primary_region = "lax"  # Free tier available in all regions
+
+# Kill switch for paid features
+kill_signal = "SIGINT"
+kill_timeout = "5s"
+
+[build]
+  dockerfile = "backend/Dockerfile"
+
+[env]
+  NODE_ENV = "production"
+  PORT = "8080"  # Fly.io internal port
+
+# ===================================
+# HTTP SERVICE - FREE TIER CONFIG
+# ===================================
+[http_service]
+  internal_port = 8080
+  force_https = true
+  auto_stop_machines = true   # ✅ CRITICAL: Scale to zero when idle
+  auto_start_machines = true  # ✅ Wake up on requests
+  min_machines_running = 0    # ✅ CRITICAL: Zero cost when idle
+  processes = ["app"]
+
+# ===================================
+# VM RESOURCES - MINIMUM FREE TIER
+# ===================================
+[vm]
+  cpu_kind = "shared"         # ✅ Free tier CPU
+  cpus = 1                    # ✅ Minimum
+  memory_mb = 256             # ✅ CRITICAL: Free tier max
+
+# ===================================
+# HEALTH CHECKS - LIGHTWEIGHT
+# ===================================
+[[http_service.checks]]
+  grace_period = "10s"
+  interval = "30s"
+  method = "GET"
+  timeout = "5s"
+  path = "/health"
+
+# ===================================
+# NO VOLUMES (VOLUMES COST MONEY)
+# ===================================
+# DO NOT ADD [mounts] section
+
+# ===================================
+# NO METRICS (COSTS MONEY)
+# ===================================
+# DO NOT enable metrics or logging services
