@@ -56,11 +56,12 @@ router.get('/sent', async (req, res) => {
 router.post('/request', async (req, res) => {
   try {
     const { username } = req.body;
-    
+
     if (!username) {
-      return res.status(400).json({ error: 'Username required' });
+      res.status(400).json({ error: 'Username required' });
+      return;
     }
-    
+
     const friendship = await FriendService.sendFriendRequest(req.user!.id, username);
     res.json({ friendship });
   } catch (error: any) {

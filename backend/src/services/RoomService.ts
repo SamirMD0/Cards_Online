@@ -1,4 +1,4 @@
-import { RoomMetadata, RoomListItem } from '../types/room.types.js';
+import { RoomMetadata } from '../types/room.types.js';
 import { ValidationError, ConflictError, NotFoundError } from '../utils/errors.js';
 import { randomBytes } from 'crypto';
 /**
@@ -9,7 +9,7 @@ export class RoomService {
   private rooms = new Map<string, RoomMetadata>();
   private static instance: RoomService;
 
-  private constructor() {}
+  private constructor() { }
 
   static getInstance(): RoomService {
     if (!RoomService.instance) {
@@ -96,13 +96,13 @@ export class RoomService {
    * Validate room can be joined
    */
   canJoinRoom(
-    roomId: string, 
-    gameStarted: boolean, 
+    roomId: string,
+    gameStarted: boolean,
     currentPlayers: any[], // Pass the actual players array from your GameManager/State
     userId: string         // Pass the ID of the user trying to join
   ): void {
     const room = this.rooms.get(roomId);
-    
+
     if (!room) {
       throw new NotFoundError('Room not found');
     }
@@ -128,17 +128,17 @@ export class RoomService {
   }
 
   private generateRoomCode(): string {
-  // Use crypto.randomBytes for secure randomness
-  // 8 characters from base36 (2.8 trillion combinations)
-  const bytes = randomBytes(6);
-  let code = '';
-  
-  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // Removed ambiguous chars
-  
-  for (let i = 0; i < 8; i++) {
-    code += chars[bytes[i % bytes.length] % chars.length];
+    // Use crypto.randomBytes for secure randomness
+    // 8 characters from base36 (2.8 trillion combinations)
+    const bytes = randomBytes(6);
+    let code = '';
+
+    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // Removed ambiguous chars
+
+    for (let i = 0; i < 8; i++) {
+      code += chars[bytes[i % bytes.length] % chars.length];
+    }
+
+    return code;
   }
-  
-  return code;
-}
 }

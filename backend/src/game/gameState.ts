@@ -1,6 +1,6 @@
 import { Card, CardColor, Player, PublicGameState } from '../types/game.types.js';
 import { createDeck, drawCards, shuffleDeck } from './deck.js';
-import { getNextPlayer } from './rules.js';
+
 
 
 /* ===== Types ===== */
@@ -10,7 +10,7 @@ export type Direction = 1 | -1;
 /* ===== GameState ===== */
 
 export class GameState {
-   roomId: string;
+  roomId: string;
   players: Player[];
   deck: Card[];
   discardPile: Card[];
@@ -20,7 +20,7 @@ export class GameState {
   pendingDraw: number;
   gameStarted: boolean;
   winner: string | null;
-  
+
   // ✅ NEW: Turn timer fields
   turnStartTime: number | null; // Timestamp when turn started
   turnDuration: number; // Milliseconds (30 seconds = 30000)
@@ -36,30 +36,30 @@ export class GameState {
     this.pendingDraw = 0;
     this.gameStarted = false;
     this.winner = null;
-    
+
     // ✅ NEW: Initialize timer
     this.turnStartTime = null;
     this.turnDuration = 30000; // 30 seconds
   }
-  
-   // ✅ NEW: Helper to start turn timer
+
+  // ✅ NEW: Helper to start turn timer
   startTurnTimer(): void {
     this.turnStartTime = Date.now();
   }
-  
+
   // ✅ NEW: Helper to check if turn expired
   isTurnExpired(): boolean {
     if (!this.turnStartTime) return false;
     return Date.now() - this.turnStartTime > this.turnDuration;
   }
-  
+
   // ✅ NEW: Get remaining time
   getTurnTimeRemaining(): number {
     if (!this.turnStartTime) return this.turnDuration;
     const elapsed = Date.now() - this.turnStartTime;
     return Math.max(0, this.turnDuration - elapsed);
   }
-  
+
 
   addPlayer(playerId: string, playerName: string, isBot: boolean = false): boolean {
     if (this.players.length >= 4) return false;

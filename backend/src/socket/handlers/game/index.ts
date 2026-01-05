@@ -16,33 +16,33 @@ import { handleRequestHand } from './requestHandHandler.js';
 export function setupGameHandlers(
   io: Server,
   socket: Socket,
-  roomService: RoomService,
+  _roomService: RoomService,
   gameManager: GameStateManager
 ) {
   // Game lifecycle
   socket.on('start_game', () => {
     handleStartGame(io, socket, gameManager);
   });
-  
+
   // Game actions
   socket.on('play_card', (data) => {
     handlePlayCard(io, socket, gameManager, data);
   });
-  
+
   socket.on('draw_card', () => {
     handleDrawCard(io, socket, gameManager);
   });
-  
+
   // Bot management
   socket.on('add_bot', () => {
     handleAddBot(io, socket, gameManager);
   });
-  
+
   // Debug/sync
   socket.on('request_hand', () => {
     handleRequestHand(socket, gameManager);
   });
-  
+
   console.log(`[GameHandlers] Registered 5 handlers for socket ${socket.id}`);
 }
 

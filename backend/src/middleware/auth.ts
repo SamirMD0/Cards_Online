@@ -9,21 +9,22 @@ export async function authMiddleware(req: Request, res: Response, next: NextFunc
   try {
     // Try to get token from cookie or Authorization header
     const token = req.cookies?.token || req.headers.authorization?.replace('Bearer ', '');
-    
+
     if (!token) {
-      return res.status(401).json({ error: 'Authentication required' });
+      res.status(401).json({ error: 'Authentication required' });
+      return;
     }
-    
+
     // Verify token and get user
     const user = await AuthService.verifyToken(token);
-    
+
     // Attach user to request
     req.user = user;
-    
+
     next();
-    
+
   } catch (error: any) {
-    return res.status(401).json({ error: error.message || 'Unauthorized' });
+    res.status(401).json({ error: error.message || 'Unauthorized' });
   }
 }
 
@@ -31,10 +32,10 @@ export async function authMiddleware(req: Request, res: Response, next: NextFunc
  * Optional auth - doesn't fail if no token
  * Just attaches user if token is valid
  */
-export async function optionalAuthMiddleware(req: Request, res: Response, next: NextFunction) {
+export async function optionalAuthMiddleware(req: Request, _res: Response, next: NextFunction) {
   try {
     const token = req.cookies?.token || req.headers.authorization?.replace('Bearer ', '');
-    
+
     if (token) {
       const user = await AuthService.verifyToken(token);
       req.user = user;
@@ -42,7 +43,7 @@ export async function optionalAuthMiddleware(req: Request, res: Response, next: 
   } catch (error) {
     // Ignore auth errors for optional middleware
   }
-  
+
   next();
 }
 

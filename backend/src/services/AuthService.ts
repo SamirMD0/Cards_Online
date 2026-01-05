@@ -13,7 +13,7 @@ const JWT_SECRET = process.env.JWT_SECRET;
 if (!JWT_SECRET || JWT_SECRET.length < 32) {
   throw new Error(
     "FATAL: JWT_SECRET is missing or too short (min 32 chars). " +
-      "Set it in .env before starting the server."
+    "Set it in .env before starting the server."
   );
 }
 
@@ -178,9 +178,7 @@ export class AuthService {
   static async verifyToken(token: string) {
     try {
       // Verify JWT
-      const decoded = jwt.verify(token, JWT_SECRET as string) as {
-        userId: string;
-      };
+      jwt.verify(token, JWT_SECRET as string);
 
       // Check session exists and not expired
       const session = await prisma.session.findUnique({

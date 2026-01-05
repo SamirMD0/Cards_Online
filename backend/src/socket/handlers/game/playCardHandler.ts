@@ -8,7 +8,7 @@ import { canPlayCard, applyCardEffect, getNextPlayer, checkWinner } from '../../
 import { emitError } from '../../../utils/errors.js';
 import { requireGameContext, requireTurn, requirePlayer } from './validators.js';
 import { processBotTurn } from './botTurnProcessor.js';
-import { GameHistoryService } from '../../../services/GameHistoryService.js';
+
 
 import { cleanupFinishedGame } from './gameCleanup.js';
 import { RoomService } from '../../../services/RoomService.js';
@@ -25,45 +25,45 @@ export async function handlePlayCard(
     const { userId, roomId, game } = await requireGameContext(socket, gameManager);
     requireTurn(game, userId);
     const player = requirePlayer(game, userId);
-    
+
     const cardIndex = player.hand.findIndex(c => c.id === validated.cardId);
     if (cardIndex === -1) {
       throw new Error('Card not found in your hand');
     }
-    
+
     const card = player.hand[cardIndex];
     const topCard = game.discardPile[game.discardPile.length - 1];
-    
+
     // ✅ NEW: If there's a pending draw, you MUST draw (no stacking)
     if (game.pendingDraw > 0) {
       throw new Error(`You must draw ${game.pendingDraw} cards first!`);
     }
-    
+
     // Validate card can be played
     if (!canPlayCard(card, topCard, game.currentColor)) {
       throw new Error('This card cannot be played on the current card');
     }
-    
+
     // Wild cards require color choice
     if (card.color === 'wild' && !validated.chosenColor) {
       throw new Error('You must choose a color for wild cards');
     }
-    
+
     // Execute play
     player.hand.splice(cardIndex, 1);
     game.discardPile.push(card);
-    
+
     // Set current color
     if (card.color === 'wild') {
       game.currentColor = validated.chosenColor as any;
     } else {
       game.currentColor = card.color;
     }
-    
+
     console.log(`[PlayCard] ${player.name} played ${card.color} ${card.value}`);
-    
+
     socket.emit('hand_update', { hand: player.hand });
-    
+
     io.to(roomId).emit('card_played', {
       playerId: userId,
       card,
@@ -71,7 +71,7 @@ export async function handlePlayCard(
     });
 
     await gameManager.saveGame(roomId);
-    
+
     // Check winner
     if (checkWinner(player)) {
       game.winner = userId;
@@ -88,18 +88,18 @@ export async function handlePlayCard(
 
       return; // Exit handler
     }
-    
+
     // ✅ NEW: Apply effects FIRST (may set pendingDraw)
     applyCardEffect(card, game);
-    
+
     // ✅ NEW: Advance turn UNLESS skip/reverse already handled it
     if (!['skip', 'reverse'].includes(card.value as string)) {
       game.currentPlayer = getNextPlayer(game);
     }
-    
+
     io.to(roomId).emit('game_state', game.getPublicState());
     gameManager.resetGameTimer(roomId);
-    
+
     // ✅ NEW: If next player is human with pendingDraw, notify them
     if (game.pendingDraw > 0) {
       const nextPlayer = game.players.find(p => p.id === game.currentPlayer);
@@ -120,7 +120,7 @@ export async function handlePlayCard(
     if (nextPlayer?.isBot) {
       setTimeout(() => processBotTurn(io, game, roomId, gameManager), 1500);
     }
-    
+
   } catch (error) {
     console.error('[PlayCard] Error:', error);
     emitError(socket, error);

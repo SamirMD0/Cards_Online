@@ -8,7 +8,7 @@ const router = express.Router();
 /**
  * Basic health check - always returns 200 if server is running
  */
-router.get('/health', (req, res) => {
+router.get('/health', (_req, res) => {
   res.json({
     status: 'ok',
     timestamp: new Date().toISOString(),
@@ -20,7 +20,7 @@ router.get('/health', (req, res) => {
 /**
  * Database health check
  */
-router.get('/health/db', async (req, res) => {
+router.get('/health/db', async (_req, res) => {
   try {
     await prisma.$queryRaw`SELECT 1`;
     res.json({
@@ -42,7 +42,7 @@ router.get('/health/db', async (req, res) => {
 /**
  * Redis health check
  */
-router.get('/health/redis', async (req, res) => {
+router.get('/health/redis', async (_req, res) => {
   try {
     const result = await redis.ping();
     if (result !== 'PONG') {
@@ -67,7 +67,7 @@ router.get('/health/redis', async (req, res) => {
 /**
  * Comprehensive readiness check (all systems)
  */
-router.get('/health/ready', async (req, res) => {
+router.get('/health/ready', async (_req, res) => {
   const checks = {
     server: false,
     database: false,
@@ -112,7 +112,7 @@ router.get('/health/ready', async (req, res) => {
 /**
  * Liveness check (for Kubernetes-style orchestrators)
  */
-router.get('/health/live', (req, res) => {
+router.get('/health/live', (_req, res) => {
   res.json({
     status: 'alive',
     timestamp: new Date().toISOString(),
