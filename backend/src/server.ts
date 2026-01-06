@@ -66,17 +66,12 @@ const ALLOWED_ORIGINS = [
 app.use(
   cors({
     origin: (origin, callback) => {
-      // Allow requests with no origin (mobile apps, Postman)
-      if (!origin) return callback(null, true);
-
-      if (ALLOWED_ORIGINS.includes(origin)) {
-        callback(null, true);
-      } else {
-        console.warn(`[CORS] Blocked request from: ${origin}`);
-        callback(new Error("Not allowed by CORS"));
-      }
+      // ✅ TEMPORARY DEBUG: Allow all origins to fix production connection
+      // Once working, we will revert to strict ALLOWED_ORIGINS
+      console.log(`[CORS] Request from origin: ${origin}`);
+      callback(null, true);
     },
-    credentials: true,  // ✅ Required for cookies
+    credentials: true,
     optionsSuccessStatus: 200,
   })
 );

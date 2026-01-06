@@ -97,7 +97,7 @@ export default function Register() {
                   placeholder="Choose a username"
                   minLength={3}
                   maxLength={20}
-                  pattern="[a-zA-Z0-9_-]+"
+                  pattern="[a-zA-Z0-9_\\-]+"
                   title="Only letters, numbers, - and _ allowed"
                   className="w-full px-4 py-3 bg-dark-700 border-2 border-dark-600 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-uno-blue transition-colors"
                   required
@@ -149,13 +149,12 @@ export default function Register() {
                 />
                 {password && (
                   <p
-                    className={`text-xs mt-1 ${
-                      passwordStrength === "Strong"
+                    className={`text-xs mt-1 ${passwordStrength === "Strong"
                         ? "text-green-400"
                         : passwordStrength === "Good"
-                        ? "text-yellow-400"
-                        : "text-red-400"
-                    }`}
+                          ? "text-yellow-400"
+                          : "text-red-400"
+                      }`}
                   >
                     Strength: {passwordStrength}
                   </p>
