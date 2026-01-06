@@ -1,0 +1,57 @@
+# ===================================
+# Fly.io FREE TIER Configuration
+# ===================================
+# ZERO COST - Scales to zero when idle
+# Uses external free PostgreSQL (Neon) + Redis (Upstash)
+
+app = "uno-online-backend"
+primary_region = "lax"
+
+kill_signal = "SIGINT"
+kill_timeout = "5s"
+
+[build]
+  dockerfile = "Dockerfile"
+
+[env]
+  NODE_ENV = "production"
+  PORT = "8080"
+
+# ===================================
+# HTTP SERVICE - TRUE FREE TIER
+# ===================================
+[http_service]
+  internal_port = 8080
+  force_https = true
+  auto_stop_machines = true   # ✅ Scale to zero
+  auto_start_machines = true  # ✅ Wake on request
+  min_machines_running = 0    # ✅ ZERO always-on instances
+  processes = ["app"]
+
+# ===================================
+# VM RESOURCES - MINIMUM FREE TIER
+# ===================================
+[[vm]]
+  cpu_kind = "shared"
+  cpus = 1
+  memory_mb = 256  # ✅ Minimum free tier
+
+# ===================================
+# HEALTH CHECKS - LIGHTWEIGHT
+# ===================================
+[[services.http_checks]]
+  interval = "30s"
+  timeout = "5s"
+  grace_period = "10s"
+  method = "GET"
+  path = "/health"
+  protocol = "http"
+
+# ===================================
+# NO PAID FEATURES
+# ===================================
+# ❌ NO [mounts] (volumes cost money)
+# ❌ NO metrics (costs money)
+# ❌ NO Fly PostgreSQL ($2/mo minimum)
+# ❌ NO Fly Redis ($1/mo minimum)
+# ✅ Use Neon + Upstash instead (both free)

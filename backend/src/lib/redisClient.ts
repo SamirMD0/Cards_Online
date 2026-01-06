@@ -16,14 +16,17 @@ class RedisClient {
   static getInstance(): Redis {
     if (!RedisClient.instance) {
       RedisClient.instance = new Redis(REDIS_URL!, {
-        maxRetriesPerRequest: 3,
+        maxRetriesPerRequest: null, // Allow retry for all requests
         retryStrategy: (times) => {
-          if (times > 3) {
-            console.error('❌ Redis connection failed after 3 retries');
+          // Retry for up to ~30 seconds (conservative for cold starts)
+          if (times > 20) {
+            console.error('❌ Redis connection failed after 20 retries');
             return null; // Stop retrying
           }
-          
-          return Math.min(times * 200, 1000); // Exponential backoff
+
+          const delay = Math.min(times * 200, 3000); // Exponential backoff up to 3s
+          console.warn(`⚠️ Redis retry attempt ${times} in ${delay}ms`);
+          return delay;
         }
       });
 
