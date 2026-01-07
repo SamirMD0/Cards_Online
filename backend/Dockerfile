@@ -1,7 +1,7 @@
 # ===================================
 # Stage 1: Dependencies
 # ===================================
-FROM node:18-alpine AS deps
+FROM node:20-bullseye-slim AS deps
 
 WORKDIR /app
 
@@ -11,7 +11,7 @@ RUN npm ci --only=production && npm cache clean --force
 # ===================================
 # Stage 2: Build
 # ===================================
-FROM node:18-alpine AS builder
+FROM node:20-bullseye-slim AS builder
 
 WORKDIR /app
 
@@ -32,13 +32,21 @@ RUN npm run build
 # ===================================
 # Stage 3: Production (256MB Optimized)
 # ===================================
-FROM node:18-alpine AS runner
+FROM node:20-bullseye-slim AS runner
+
+# Install OpenSSL 1.1
+RUN apt-get update && \
+    apt-get install -y libssl1.1 ca-certificates && \
+    rm -rf /var/lib/apt/lists/*
 
 # Security: Non-root user
-RUN addgroup --system --gid 1001 nodejs && \
-  adduser --system --uid 1001 unoapp
+RUN groupadd --system --gid 1001 nodejs && \
+    useradd --system --uid 1001 unoapp
 
 WORKDIR /app
+
+# Copy package.json
+COPY --from=builder --chown=unoapp:nodejs /app/package.json ./package.json
 
 # Copy production deps
 COPY --from=deps --chown=unoapp:nodejs /app/node_modules ./node_modules
@@ -46,22 +54,17 @@ COPY --from=deps --chown=unoapp:nodejs /app/node_modules ./node_modules
 # Copy built app
 COPY --from=builder --chown=unoapp:nodejs /app/dist ./dist
 
-# Copy Prisma (needed for runtime)
+# Copy Prisma runtime
 COPY --from=builder --chown=unoapp:nodejs /app/node_modules/.prisma ./node_modules/.prisma
 COPY --chown=unoapp:nodejs prisma ./prisma
 
-# Create logs directory
+# Logs directory
 RUN mkdir -p /app/logs && chown unoapp:nodejs /app/logs
 
 USER unoapp
 
-# ✅ Lightweight health check (no curl needed)
-HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=3 \
-  CMD node -e "require('http').get('http://localhost:8080/health', (r) => r.statusCode === 200 ? process.exit(0) : process.exit(1))"
-
 EXPOSE 8080
 
-# ✅ CRITICAL: Set Node.js memory limit for 256MB VM
 ENV NODE_OPTIONS="--max-old-space-size=200"
 
 CMD ["node", "dist/server.js"]

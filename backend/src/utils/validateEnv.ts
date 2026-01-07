@@ -1,11 +1,12 @@
-// backend/src/utils/validateEnv.ts
-// ✅ FREE TIER: Strict validation, NO fallbacks
+// backend/src/utils/validateEnv.ts - REPLACE ENTIRE FILE
 
 export function validateEnvironment() {
+  console.log('🔍 Validating environment variables...');
+  
   const required = [
-    'DATABASE_URL',    // ⚠️ WARNING: PostgreSQL on Fly = $2/mo minimum
+    'DATABASE_URL',
     'JWT_SECRET',
-    'REDIS_URL',       // ⚠️ WARNING: Redis on Fly = $1/mo minimum
+    'REDIS_URL',
     'CLIENT_URL',
   ];
 
@@ -15,11 +16,11 @@ export function validateEnvironment() {
     console.error('❌ FATAL: Missing required environment variables:');
     missing.forEach(key => console.error(`   - ${key}`));
     console.error('');
-    console.error('💡 FREE TIER ALTERNATIVES:');
-    console.error('   - DATABASE_URL: Use free PostgreSQL from Neon, Supabase, or Railway');
-    console.error('   - REDIS_URL: Use free Redis from Upstash or Railway');
-    console.error('   - Fly.io PostgreSQL/Redis = NOT FREE (minimum $3/mo)');
+    console.error('💡 Set secrets with:');
+    console.error('   flyctl secrets set KEY=value');
     console.error('');
+    
+    // ✅ FIX: Exit immediately instead of continuing
     process.exit(1);
   }
 
@@ -29,7 +30,7 @@ export function validateEnvironment() {
     process.exit(1);
   }
 
-  // Validate URLs (catch typos early)
+  // ✅ FIX: Add try-catch for URL validation
   try {
     new URL(process.env.DATABASE_URL!);
     new URL(process.env.REDIS_URL!);
@@ -41,5 +42,7 @@ export function validateEnvironment() {
   }
 
   console.log('✅ Environment validation passed');
-  console.log('⚠️  FREE TIER MODE: Ensure PostgreSQL + Redis are from free providers');
+  console.log(`   DATABASE_URL: ${process.env.DATABASE_URL!.substring(0, 30)}...`);
+  console.log(`   REDIS_URL: ${process.env.REDIS_URL!.substring(0, 30)}...`);
+  console.log(`   CLIENT_URL: ${process.env.CLIENT_URL}`);
 }

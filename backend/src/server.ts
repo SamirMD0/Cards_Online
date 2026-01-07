@@ -1,3 +1,16 @@
+process.on('uncaughtException', (error) => {
+  console.error('💥 FATAL: Uncaught exception during startup');
+  console.error(error);
+  process.exit(1); // Exit cleanly instead of crash-looping
+});
+
+process.on('unhandledRejection', (reason) => {
+  console.error('💥 FATAL: Unhandled promise rejection during startup');
+  console.error(reason);
+  process.exit(1);
+});
+
+
 import express from "express";
 import { createServer } from "http";
 import { Server } from "socket.io";
