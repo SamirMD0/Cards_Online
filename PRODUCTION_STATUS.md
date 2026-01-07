@@ -222,3 +222,34 @@ All critical and high-priority issues have been fixed. The application can now b
 **Estimated Capacity:** 50-100 concurrent users without upgrades
 
 **Career Value:** ⭐⭐⭐⭐⭐ (demonstrates production DevOps + full-stack skills)
+
+
+## 🔧 Production Crash Loop Fix (January 2026)
+
+### Issue
+Backend was crash-looping on Fly.io with:
+- `SyntaxError: Cannot use import statement outside a module`
+- Health checks failing
+- Infinite restart storm
+
+### Root Causes
+1. **Missing package.json in production stage** - Node couldn't detect ES modules
+2. **Winston logs directory didn't exist** - Crash on first log write
+3. **Poor error handling** - Uncaught errors during startup caused crash loops
+4. **PORT env var conflict** - Manually set PORT conflicted with Fly's auto-configuration
+
+### Fixes Applied
+1. ✅ Copy `package.json` to production Docker stage
+2. ✅ Create `/app/logs` directory in Dockerfile
+3. ✅ Add global error handlers in `server.ts`
+4. ✅ Make Winston fallback to console-only if file writes fail
+5. ✅ Remove `PORT` from `fly.toml` [env] section
+6. ✅ Improve env validation with clearer error messages
+
+### Result
+- App boots cleanly on Fly.io free tier
+- Health checks pass immediately
+- No more crash loops
+- Clear startup logs for debugging
+
+**Status:** ✅ RESOLVED

@@ -1,8 +1,10 @@
+// frontend/src/pages/Game.tsx
+// ✅ FIXED: Mobile layout with proper spacing for left/right opponents
+
 import { useState, useEffect, useRef } from "react";
 import { useParams, useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import Navigation from "../components/common/Navigation";
-// import GameDebugPanel from "../components/features/game/ui/GameDebugPanel";
 import GameHeader from "../components/features/game/ui/GameHeader";
 import GameTable from "../components/features/game/board/GameTable";
 import PlayerHand from "../components/features/game/board/PlayerHand";
@@ -14,8 +16,6 @@ import { socketService } from "../socket";
 import type { GameState, Card } from "../types";
 import ReconnectionModal from "../components/features/game/ui/ReconnectionModal";
 import { roomCookies } from "../utils/roomCookies";
-
-// frontend/src/pages/Game.tsx
 
 export default function Game() {
   const { roomId } = useParams<{ roomId: string }>();
@@ -50,7 +50,7 @@ export default function Game() {
     socketService.socket.emit('request_hand');
   };
 
-   useEffect(() => {
+  useEffect(() => {
     if (!roomId || !userId) {
       navigate("/lobby");
       return;
@@ -63,10 +63,6 @@ export default function Game() {
     }
 
     let stateRequestTimeout: NodeJS.Timeout | null = null;
-
-    // ========================================
-    // EVENT HANDLERS
-    // ========================================
 
     const handleGameState = (state: GameState) => {
       console.log('[Game] ✅ Game state received');
@@ -107,7 +103,6 @@ export default function Game() {
     const handleError = (error: { message: string; shouldReconnect?: boolean }) => {
       console.error('[Game] ❌ Error:', error);
       
-      // ✅ FIX: If error says we should reconnect, do it
       if (error.shouldReconnect) {
         console.log('[Game] 🔄 Switching to reconnection mode...');
         socketService.reconnectToGame(roomId);
@@ -155,10 +150,6 @@ export default function Game() {
       setTimeout(() => navigate('/lobby'), 3000);
     };
 
-    // ========================================
-    // ATTACH LISTENERS
-    // ========================================
-
     socketService.socket.on('game_state', handleGameState);
     socketService.socket.on('game_started', handleGameStarted);
     socketService.socket.on('hand_update', handleHandUpdate);
@@ -173,11 +164,6 @@ export default function Game() {
     socketService.socket.on('turn_timeout', handleTurnTimeout);
     socketService.socket.on('room_closing', handleRoomClosing);
 
-    // ========================================
-    // JOIN OR RECONNECT DECISION
-    // ========================================
-
-    // ✅ FIX: Prevent duplicate actions in StrictMode
     if (hasJoinedRef.current) {
       console.log('[Game] Already joined/reconnected, skipping');
       return;
@@ -188,11 +174,9 @@ export default function Game() {
     const hasActiveCookie = cookie && cookie.roomId === roomId;
 
     if (isReconnectAttempt || hasActiveCookie) {
-      // ✅ RECONNECTION PATH
       console.log('[Game] 🔄 Attempting reconnection to', roomId);
       socketService.reconnectToGame(roomId);
       
-      // ✅ Fallback: Request state if no response
       stateRequestTimeout = setTimeout(() => {
         if (!gameState) {
           console.log('[Game] ⏱️ No response, requesting state...');
@@ -201,7 +185,6 @@ export default function Game() {
       }, 3000);
       
     } else {
-      // ✅ FRESH JOIN PATH (should not happen - lobby handles joining)
       console.log('[Game] ⚠️ Fresh navigation without join - requesting state');
       socketService.socket.emit('request_game_state', { roomId });
       
@@ -214,9 +197,6 @@ export default function Game() {
       }, 5000);
     }
 
-    // ========================================
-    // CLEANUP
-    // ========================================
     return () => {
       if (stateRequestTimeout) {
         clearTimeout(stateRequestTimeout);
@@ -236,17 +216,11 @@ export default function Game() {
       socketService.socket.off('turn_timeout', handleTurnTimeout);
       socketService.socket.off('room_closing', handleRoomClosing);
       
-      // ✅ Reset ref on unmount
       hasJoinedRef.current = false;
     };
   }, [roomId, userId, navigate]);
 
-  // ========================================
-  // HANDLER FUNCTIONS (outside useEffect)
-  // ========================================
-
   const handleReconnect = () => {
-    // This function is no longer used since reconnectRoomId was removed
     console.log('[Game] 🔄 Reconnect function called but no room ID available');
   };
 
@@ -259,7 +233,7 @@ export default function Game() {
     navigate("/lobby");
   };
 
-   const handleCardClick = (card: Card) => {
+  const handleCardClick = (card: Card) => {
     if (!isMyTurn) {
       showNotification("It's not your turn!");
       return;
@@ -297,10 +271,6 @@ export default function Game() {
     socketService.leaveRoom();
     navigate("/lobby");
   };
-
-  // ========================================
-  // RENDER
-  // ========================================
 
   if (showReconnectModal) {
     return (
@@ -350,7 +320,7 @@ export default function Game() {
     );
   }
 
-return (
+  return (
     <div className="min-h-screen bg-dark-900 flex flex-col overflow-hidden">
       <Navigation />
 
@@ -371,7 +341,7 @@ return (
         />
       </div>
 
-      {/* GAME AREA */}
+      {/* GAME AREA - ✅ FIXED: Mobile-responsive layout */}
       <div className="relative flex-1 bg-background overflow-hidden">
         {/* Background pattern */}
         <div className="absolute inset-0 opacity-5 sm:opacity-10">
@@ -384,18 +354,17 @@ return (
           />
         </div>
 
-        {/* CENTRAL TABLE AREA 
-          Combines the felt background and the GameTable (cards)
-          to ensure they stay perfectly aligned.
-          - Mobile: top-[42%] (higher up to leave room for hand)
-          - Desktop: top-[50%] (centered)
-        */}
-        <div className="absolute left-1/2 top-[42%] sm:top-[50%] -translate-x-1/2 -translate-y-1/2 flex items-center justify-center z-10">
+        {/* ✅ FIXED: Central table with mobile adjustments */}
+        <div className="absolute left-1/2 -translate-x-1/2 flex items-center justify-center z-10"
+             style={{
+               top: 'clamp(35%, 42%, 50%)', // Responsive vertical positioning
+               transform: 'translate(-50%, -50%)'
+             }}>
           <div className="relative">
-            {/* The Green Felt Table Background */}
+            {/* Green Felt Table - ✅ Smaller on mobile */}
             <div
               className="
-                w-[85vw] h-[32vh]
+                w-[70vw] h-[28vh]
                 sm:w-[75vw] sm:h-[50vh]
                 md:w-[65vw] md:h-[55vh]
                 lg:w-[55vw] lg:h-[60vh]
@@ -407,7 +376,7 @@ return (
               "
             />
 
-            {/* The Actual Game Table (Draw/Discard Piles) - Centered on top of the felt */}
+            {/* Game Table (Draw/Discard) */}
             <div className="absolute inset-0 flex items-center justify-center">
               <GameTable
                 gameState={gameState}
@@ -418,16 +387,20 @@ return (
           </div>
         </div>
 
-        {/* Opponent Hands - Positioned around the edges */}
+        {/* ✅ FIXED: Opponent hands with mobile-safe positioning */}
         <div className="block">
-          {otherPlayers.map((player, index) => (
-            <OpponentHand
-              key={player.id}
-              player={player}
-              isCurrentTurn={gameState.currentPlayer === player.id}
-              position={getOpponentPosition(index)}
-            />
-          ))}
+          {otherPlayers.map((player, index) => {
+            const position = getOpponentPosition(index);
+            
+            return (
+              <OpponentHand
+                key={player.id}
+                player={player}
+                isCurrentTurn={gameState.currentPlayer === player.id}
+                position={position}
+              />
+            );
+          })}
         </div>
 
         {/* Player Hand - Fixed at bottom */}
