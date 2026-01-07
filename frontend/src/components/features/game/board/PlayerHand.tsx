@@ -47,7 +47,7 @@ export default function PlayerHand({
               )}
             </div>
           </div>
-          
+
           {pendingDraw > 0 && (
             <div className="bg-destructive text-white px-3 sm:px-3 py-1.5 sm:py-1.5 rounded-lg sm:rounded-xl font-heading font-bold text-sm sm:text-sm md:text-base animate-pulse">
               +{pendingDraw}
@@ -73,12 +73,12 @@ export default function PlayerHand({
                 const totalCards = playerHand.length;
                 const centerIndex = (totalCards - 1) / 2;
                 const offset = index - centerIndex;
-                
+
                 // Mobile: BIGGER cards, less rotation
                 const rotation = isMobile ? offset * 0.5 : offset * 2;
                 const translateY = Math.abs(offset) * (isMobile ? 1 : 3);
                 const isHovered = hoveredIndex === index;
-                
+
                 return (
                   <div
                     key={card.id}
@@ -89,7 +89,12 @@ export default function PlayerHand({
                         translateY(${isHovered ? -12 : translateY}px)
                         scale(${isHovered ? 1.05 : 1})
                       `,
-                      marginLeft: index > 0 ? (isMobile ? '-1rem' : '-0.75rem') : 0,
+                      marginLeft: index > 0
+                        ? (isMobile
+                          // Tighter spacing if many cards on mobile
+                          ? (totalCards > 7 ? '-1.75rem' : '-1rem')
+                          : '-0.75rem')
+                        : 0,
                       zIndex: isHovered ? 50 : index,
                     }}
                     onMouseEnter={() => setHoveredIndex(index)}

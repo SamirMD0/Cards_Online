@@ -34,7 +34,7 @@ export default function Game() {
   const [isReconnecting, setIsReconnecting] = useState(false);
   const [canReconnect, setCanReconnect] = useState(false);
   const [turnTimeRemaining, setTurnTimeRemaining] = useState<number>(30000);
-  
+
   const userId = user?.id || null;
   const isMyTurn = gameState?.currentPlayer === userId;
   const hasJoinedRef = useRef(false);
@@ -111,7 +111,7 @@ export default function Game() {
       showNotification(data.message || 'Reconnected successfully');
     };
 
-    const handleReconnectionFailed = (data: any) => {
+    const handleReconnectionFailed = (_data: any) => {
       showNotification('Reconnection failed. Returning to lobby...');
       roomCookies.clearCurrentRoom();
       setTimeout(() => navigate('/lobby'), 2000);
@@ -193,7 +193,7 @@ export default function Game() {
   }, [roomId, userId, navigate]);
 
   // [Event handlers - UNCHANGED]
-  const handleReconnect = () => {};
+  const handleReconnect = () => { };
   const handleDismissReconnect = () => {
     setShowReconnectModal(false);
     setCanReconnect(false);
@@ -284,11 +284,11 @@ export default function Game() {
   }
 
   // ✅ ZONE ASSIGNMENT (unchanged)
-  const topOpponent = otherPlayers.length === 1 ? otherPlayers[0] : 
-                      otherPlayers.length >= 2 ? otherPlayers[1] : null;
+  const topOpponent = otherPlayers.length === 1 ? otherPlayers[0] :
+    otherPlayers.length >= 2 ? otherPlayers[1] : null;
   const leftOpponent = otherPlayers.length >= 2 ? otherPlayers[0] : null;
-  const rightOpponent = otherPlayers.length >= 3 ? otherPlayers[2] : 
-                        otherPlayers.length === 2 ? otherPlayers[1] : null;
+  const rightOpponent = otherPlayers.length >= 3 ? otherPlayers[2] :
+    otherPlayers.length === 2 ? otherPlayers[1] : null;
 
   // ✅ NEW: Fixed layout with proper zone isolation
   return (
@@ -312,11 +312,11 @@ export default function Game() {
         />
       </div>
 
-      {/* ✅ ZONE-BASED LAYOUT - Using minmax() to prevent collapse */}
-      <div className="flex-1 grid grid-rows-[minmax(48px,60px)_1fr_auto] sm:grid-rows-[minmax(56px,80px)_1fr_auto] md:grid-rows-[minmax(64px,100px)_1fr_auto] overflow-hidden">
-        
-        {/* ========== TOP ZONE - Fixed min height ========== */}
-        <div className="relative flex items-center justify-center px-2 z-20">
+      {/* ✅ ZONE-BASED LAYOUT - Flex Column with Absolute Side Zones */}
+      <div className="flex-1 flex flex-col overflow-hidden relative">
+
+        {/* ========== TOP ZONE - Fixed Height, Standard Flow ========== */}
+        <div className="shrink-0 h-[60px] sm:h-[80px] md:h-[100px] flex items-center justify-center px-2 z-20 w-full">
           {topOpponent && (
             <OpponentHand
               player={topOpponent}
@@ -326,22 +326,38 @@ export default function Game() {
           )}
         </div>
 
-        {/* ========== MIDDLE ZONE (Side opponents + Table) ========== */}
-        <div className="relative grid grid-cols-[minmax(48px,80px)_1fr_minmax(48px,80px)] sm:grid-cols-[minmax(64px,120px)_1fr_minmax(64px,120px)] md:grid-cols-[minmax(80px,160px)_1fr_minmax(80px,160px)] overflow-hidden">
-          
-          {/* LEFT ZONE - Fixed min width */}
-          <div className="relative flex items-center justify-center z-20">
-            {leftOpponent && (
-              <OpponentHand
-                player={leftOpponent}
-                isCurrentTurn={gameState.currentPlayer === leftOpponent.id}
-                position="left"
-              />
-            )}
+        {/* ========== MIDDLE ZONE (Side Opponents + Table) ========== */}
+        <div className="flex-1 relative w-full isolate">
+
+          {/* LEFT ZONE - Absolute Anchor */}
+          <div className="absolute left-0 top-1/2 -translate-y-1/2 z-30 h-full flex items-center pl-1 sm:pl-2 md:pl-4 pointer-events-none">
+            {/* Pointer events auto on child to allow interaction if needed, but wrapper shouldn't block table clicks */}
+            <div className="pointer-events-auto">
+              {leftOpponent && (
+                <OpponentHand
+                  player={leftOpponent}
+                  isCurrentTurn={gameState.currentPlayer === leftOpponent.id}
+                  position="left"
+                />
+              )}
+            </div>
           </div>
 
-          {/* ✅ CENTER ZONE - TABLE ONLY (Isolated stacking context) */}
-          <div className="relative flex items-center justify-center isolate z-10">
+          {/* RIGHT ZONE - Absolute Anchor */}
+          <div className="absolute right-0 top-1/2 -translate-y-1/2 z-30 h-full flex items-center pr-1 sm:pr-2 md:pr-4 pointer-events-none">
+            <div className="pointer-events-auto">
+              {rightOpponent && (
+                <OpponentHand
+                  player={rightOpponent}
+                  isCurrentTurn={gameState.currentPlayer === rightOpponent.id}
+                  position="right"
+                />
+              )}
+            </div>
+          </div>
+
+          {/* ✅ CENTER ZONE - TABLE ONLY (Isolated & Centered) */}
+          <div className="absolute inset-0 z-10 flex items-center justify-center overflow-hidden">
             {/* Background pattern */}
             <div className="absolute inset-0 opacity-5 pointer-events-none">
               <div
@@ -353,41 +369,30 @@ export default function Game() {
               />
             </div>
 
-            {/* Table container - Responsive sizing with aspect ratio */}
-            <div className="relative w-full h-full flex items-center justify-center p-4">
-              <div className="
-                relative
-                w-full max-w-[280px] sm:max-w-[360px] md:max-w-[440px] lg:max-w-[520px]
-                aspect-[16/10]
-                rounded-[50%]
-                table-felt table-border-ring
-              ">
-                {/* Table content - Flexbox centered, NOT absolute */}
-                <div className="absolute inset-0 flex items-center justify-center">
-                  <GameTable
-                    gameState={gameState}
-                    isMyTurn={isMyTurn}
-                    onDrawCard={handleDraw}
-                  />
-                </div>
+            {/* Table container - Responsive Max Widths to avoid side overlaps */}
+            {/* Mobile: Max width constrained to leave space for side avatars */}
+            <div className="
+              relative
+              w-full 
+              max-w-[calc(100%-6rem)] sm:max-w-[calc(100%-10rem)] md:max-w-[520px] 
+              aspect-[16/10]
+              rounded-[50%]
+              table-felt table-border-ring
+            ">
+              {/* Table content - Flexbox centered */}
+              <div className="absolute inset-0 flex items-center justify-center">
+                <GameTable
+                  gameState={gameState}
+                  isMyTurn={isMyTurn}
+                  onDrawCard={handleDraw}
+                />
               </div>
             </div>
-          </div>
-
-          {/* RIGHT ZONE - Fixed min width */}
-          <div className="relative flex items-center justify-center z-20">
-            {rightOpponent && (
-              <OpponentHand
-                player={rightOpponent}
-                isCurrentTurn={gameState.currentPlayer === rightOpponent.id}
-                position="right"
-              />
-            )}
           </div>
         </div>
 
         {/* ========== BOTTOM ZONE (Player hand) - Auto height ========== */}
-        <div className="relative shrink-0 z-30">
+        <div className="shrink-0 z-30 w-full">
           <PlayerHand
             playerName={myPlayer?.name || 'You'}
             playerHand={playerHand}

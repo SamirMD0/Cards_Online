@@ -19,13 +19,13 @@ const colorMap: Record<string, string> = {
   wild: 'linear-gradient(135deg, hsl(0, 85%, 50%), hsl(210, 100%, 45%), hsl(145, 70%, 40%), hsl(45, 100%, 50%))',
 };
 
-export default function GameTable({ 
-  gameState, 
-  isMyTurn, 
-  onDrawCard 
+export default function GameTable({
+  gameState,
+  isMyTurn,
+  onDrawCard
 }: GameTableProps) {
   // ✅ REMOVED: const isMobile = typeof window !== 'undefined' && window.innerWidth < 640;
-  
+
   return (
     // ✅ Changed from absolute to flexbox - parent controls positioning
     <div className="flex items-center gap-2 sm:gap-4 md:gap-8 lg:gap-12">
@@ -59,7 +59,7 @@ export default function GameTable({
             className={cn(
               isMyTurn && "ring-2 ring-primary/50 animate-pulse-ring",
               // Override size at different breakpoints if needed
-              "w-10 h-14 sm:w-12 sm:h-[4.5rem] md:w-14 md:h-20"
+              "w-8 h-12 sm:w-12 sm:h-[4.5rem] md:w-14 md:h-20"
             )}
           />
           <div className="absolute -bottom-0.5 -right-0.5 sm:-bottom-1 sm:-right-1 bg-secondary text-white text-[10px] sm:text-xs px-1.5 sm:px-2 py-0.5 rounded-full font-bold border border-border shadow-lg">
@@ -73,9 +73,9 @@ export default function GameTable({
         <p className="text-white/80 text-[10px] sm:text-xs md:text-sm font-heading font-semibold tracking-wide">
           COLOR
         </p>
-        <div 
+        <div
           className="w-8 h-8 sm:w-10 sm:h-10 md:w-14 md:h-14 rounded-full border-2 sm:border-4 border-white/40 shadow-xl animate-float"
-          style={{ 
+          style={{
             background: gameState.currentColor ? colorMap[gameState.currentColor] : 'white'
           }}
         />
@@ -89,7 +89,7 @@ export default function GameTable({
         <div className="relative">
           {/* Shadow cards - Hidden on mobile */}
           <div className="hidden sm:block absolute top-1 left-1 opacity-30">
-            <div className="w-10 h-14 sm:w-12 sm:h-[4.5rem] md:w-14 md:h-20 rounded-lg bg-gray-700" />
+            <div className="w-8 h-12 sm:w-12 sm:h-[4.5rem] md:w-14 md:h-20 rounded-lg bg-gray-700" />
           </div>
           {gameState.topCard && (
             <UnoCard
@@ -98,7 +98,7 @@ export default function GameTable({
               faceUp={true}
               disabled
               size="sm"
-              className="shadow-2xl card-glow w-10 h-14 sm:w-12 sm:h-[4.5rem] md:w-14 md:h-20"
+              className="shadow-2xl card-glow w-8 h-12 sm:w-12 sm:h-[4.5rem] md:w-14 md:h-20"
             />
           )}
         </div>
