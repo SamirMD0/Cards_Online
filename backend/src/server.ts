@@ -78,6 +78,7 @@ const normalizeUrl = (url: string | undefined): string | undefined => {
 const ALLOWED_ORIGINS = [
   normalizeUrl(process.env.CLIENT_URL),            // GitHub Pages (production)
   "https://cards-online-nu.vercel.app",            // Your GitHub Pages (NO TRAILING SLASH)
+  "https://cards-online-two.vercel.app",           // New Vercel Deployment
   "http://localhost:5173",                         // Dev frontend
   "http://localhost:3000",                         // Alternative dev
 ].filter((url): url is string => !!url);           // Type guard to ensure strings
