@@ -15,17 +15,17 @@ class SocketService {
   public socket: Socket;
 
   constructor() {
-    this.socket = io(SERVER_URL, {
-      autoConnect: false,
-      reconnection: true,
-      reconnectionAttempts: 5,
-      reconnectionDelay: 1000,
-      timeout: 10000,  // ✅ Faster timeout for free tier cold starts
-      auth: (cb) => {
-        const token = localStorage.getItem('token');
-        cb({ token });
-      }
-    });
+   this.socket = io(SERVER_URL, {
+  autoConnect: false,
+  reconnection: true,
+  reconnectionAttempts: 5,
+  reconnectionDelay: 1000,
+  timeout: 10000,
+  auth: (cb) => {
+    const token = localStorage.getItem('token');
+    cb({ token });
+  }
+});
 
     this.setupListeners();
   }

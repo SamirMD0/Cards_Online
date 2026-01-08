@@ -71,7 +71,7 @@ const authLimiter = rateLimit({
 // ✅ FREE TIER: CORS for GitHub Pages + Fly.io
 const ALLOWED_ORIGINS = [
   process.env.CLIENT_URL,                          // GitHub Pages (production)
-  "https://samirmd0.github.io",                    // Your GitHub Pages
+  "https://cards-online-nu.vercel.app/",                    // Your GitHub Pages
   "http://localhost:5173",                         // Dev frontend
   "http://localhost:3000",                         // Alternative dev
 ].filter(Boolean);
