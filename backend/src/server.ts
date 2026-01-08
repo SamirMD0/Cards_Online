@@ -69,21 +69,22 @@ const authLimiter = rateLimit({
    ====================== */
 
 // ✅ FREE TIER: CORS for GitHub Pages + Fly.io
+// Helper to remove trailing slashes
+const normalizeUrl = (url: string | undefined): string | undefined => {
+  if (!url) return undefined;
+  return url.endsWith('/') ? url.slice(0, -1) : url;
+};
+
 const ALLOWED_ORIGINS = [
-  process.env.CLIENT_URL,                          // GitHub Pages (production)
-  "https://cards-online-nu.vercel.app/",                    // Your GitHub Pages
+  normalizeUrl(process.env.CLIENT_URL),            // GitHub Pages (production)
+  "https://cards-online-nu.vercel.app",            // Your GitHub Pages (NO TRAILING SLASH)
   "http://localhost:5173",                         // Dev frontend
   "http://localhost:3000",                         // Alternative dev
-].filter(Boolean);
+].filter((url): url is string => !!url);           // Type guard to ensure strings
 
 app.use(
   cors({
-    origin: (origin, callback) => {
-      // ✅ TEMPORARY DEBUG: Allow all origins to fix production connection
-      // Once working, we will revert to strict ALLOWED_ORIGINS
-      console.log(`[CORS] Request from origin: ${origin}`);
-      callback(null, true);
-    },
+    origin: ALLOWED_ORIGINS,
     credentials: true,
     optionsSuccessStatus: 200,
   })
@@ -119,9 +120,7 @@ app.use("/api/friends", friendRoutes);
 
 export const io = new Server(server, {
   cors: {
-    origin: ALLOWED_ORIGINS.filter(
-      (url): url is string => typeof url === "string"
-    ),
+    origin: ALLOWED_ORIGINS,
     credentials: true,
     methods: ["GET", "POST"],
   },
