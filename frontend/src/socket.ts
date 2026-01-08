@@ -5,7 +5,7 @@ const SERVER_URL = import.meta.env.VITE_SERVER_URL;
 
 if (!SERVER_URL) {
   throw new Error(
-    'FATAL: VITE_SERVER_URL not set. ' +
+   'FATAL: VITE_SERVER_URL not set. ' +
     'Create frontend/.env.production with: ' +
     'VITE_SERVER_URL=https://your-app.fly.dev'
   );

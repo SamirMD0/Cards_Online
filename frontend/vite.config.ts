@@ -4,7 +4,7 @@ import path from 'path';
 
 // ✅ FREE TIER: GitHub Pages configuration
 export default defineConfig({
-  base: '/Cards_Online/',  // ✅ CRITICAL: Must match GitHub repo name
+  base: '/',  // ✅ CRITICAL: Must match GitHub repo name
   plugins: [react()],
   server: {
     port: 5173,
