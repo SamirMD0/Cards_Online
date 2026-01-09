@@ -1,3 +1,4 @@
+// Lobby.tsx - Modernized
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
@@ -217,12 +218,19 @@ export default function Lobby() {
 
   if (isCheckingRoom) {
     return (
-      <div className="min-h-screen bg-dark-900">
+      <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-black">
         <Navigation />
         <div className="flex items-center justify-center min-h-screen">
           <div className="text-center">
-            <div className="text-6xl mb-4 animate-bounce">🔍</div>
-            <p className="text-xl text-gray-400">Checking for active games...</p>
+            <div className="relative mb-8">
+              <div className="w-20 h-20 mx-auto rounded-full bg-gradient-to-r from-cyan-500 via-blue-500 to-purple-500 animate-spin">
+                <div className="absolute inset-4 rounded-full bg-gray-900"></div>
+              </div>
+              <div className="absolute inset-0 flex items-center justify-center">
+                <span className="text-3xl">🔍</span>
+              </div>
+            </div>
+            <p className="text-lg text-gray-300 font-light animate-pulse">Checking for active games...</p>
           </div>
         </div>
       </div>
@@ -231,28 +239,32 @@ export default function Lobby() {
 
   if (showReconnectPrompt && activeRoom) {
     return (
-      <div className="min-h-screen bg-dark-900">
+      <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-black">
         <Navigation />
         <div className="flex items-center justify-center min-h-screen px-4">
-          <div className="bg-dark-800 border-2 border-dark-700 rounded-2xl p-8 max-w-md w-full text-center">
-            <div className="text-6xl mb-4">🎮</div>
-            <h2 className="text-3xl font-poppins font-bold text-white mb-4">
+          <div className="glass-panel-dark rounded-2xl p-8 max-w-md w-full text-center animate-fade-in-up">
+            <div className="relative inline-block mb-6">
+              <div className="w-20 h-20 rounded-full bg-gradient-to-r from-blue-500 to-purple-500 flex items-center justify-center mx-auto">
+                <span className="text-3xl">🎮</span>
+              </div>
+            </div>
+            <h2 className="text-2xl font-bold text-white mb-4">
               Active Game Found!
             </h2>
             <p className="text-gray-400 mb-6">
-              You're still in room <span className="text-uno-yellow font-mono">{activeRoom.roomCode}</span>.
+              You're still in room <span className="text-blue-400 font-mono font-bold">{activeRoom.roomCode}</span>.
               Would you like to continue or leave?
             </p>
             <div className="flex flex-col gap-3">
               <button
                 onClick={handleRejoinActiveRoom}
-                className="w-full py-3 bg-gradient-to-r from-uno-blue to-uno-green hover:shadow-glow-blue text-white font-semibold rounded-lg transition-all duration-300"
+                className="btn-modern"
               >
                 🎯 Rejoin Game
               </button>
               <button
                 onClick={handleAbandonActiveRoom}
-                className="w-full py-3 bg-red-600 hover:bg-red-700 text-white font-semibold rounded-lg transition-colors"
+                className="w-full py-3 bg-gradient-to-r from-red-600 to-rose-600 hover:shadow-lg text-white font-semibold rounded-xl transition-all duration-300 hover:scale-105"
               >
                 🚪 Leave & Browse Lobby
               </button>
@@ -264,175 +276,116 @@ export default function Lobby() {
   }
 
   return (
-    <div className="min-h-screen bg-dark-900">
+    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-black">
       <Navigation />
 
-      {/* Connection Status */}
+      {/* Modern Connection Status */}
       <div className="fixed top-20 right-4 z-40">
-        <div
-          className={`flex items-center gap-2 px-4 py-2 rounded-full ${
-            isConnected ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400'
-          }`}
-        >
-          <div className={`w-2 h-2 rounded-full ${isConnected ? 'bg-green-400' : 'bg-red-400'}`} />
+        <div className={`flex items-center gap-2 px-4 py-2 rounded-full glass-panel ${isConnected ? 'border-l-4 border-green-500' : 'border-l-4 border-red-500'}`}>
+          <div className={`w-2 h-2 rounded-full ${isConnected ? 'bg-green-500 animate-pulse' : 'bg-red-500'}`} />
           <span className="text-sm font-medium">
             {isConnected ? 'Connected' : 'Disconnected'}
           </span>
         </div>
       </div>
 
-      {/* Error Notification */}
+      {/* Modern Error Notification */}
       {error && (
-        <div className="fixed top-20 left-1/2 transform -translate-x-1/2 z-50 bg-red-500 text-white px-6 py-3 rounded-lg shadow-lg">
-          {error}
+        <div className="fixed top-20 left-1/2 transform -translate-x-1/2 z-50 glass-panel border-l-4 border-red-500 px-6 py-3 rounded-xl animate-fade-in-down max-w-md w-full">
+          <div className="flex items-center gap-3">
+            <div className="w-2 h-2 rounded-full bg-red-500 animate-pulse"></div>
+            <p className="text-red-400">{error}</p>
+          </div>
         </div>
       )}
 
-      {/* Content */}
+      {/* Modern Content */}
       <div className="pt-24 pb-12 px-4 max-w-7xl mx-auto">
-        {/* Header */}
-        <div className="mb-12">
-          <h1 className="text-5xl md:text-6xl font-poppins font-extrabold text-white mb-4">
+        {/* Modern Header */}
+        <div className="mb-12 text-center md:text-left animate-fade-in-up">
+          <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold text-white mb-4 text-gradient">
             Game Lobby
           </h1>
-          <p className="text-xl text-gray-400">
-            Join an existing room or create your own
+          <p className="text-lg text-gray-400">
+            Find a room to join or create your own gaming space
           </p>
         </div>
 
-        {/* Actions Bar */}
-        <div className="flex flex-col md:flex-row gap-4 mb-8">
-          {/* Search */}
+        {/* Modern Actions Bar */}
+        <div className="flex flex-col md:flex-row gap-4 mb-8 animate-fade-in-up" style={{ animationDelay: '0.1s' }}>
+          {/* Modern Search */}
           <div className="flex-1 relative">
-            <svg
-              className="absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
-              />
-            </svg>
+            <div className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400">
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+              </svg>
+            </div>
             <input
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Search rooms by name or code..."
-              className="w-full pl-12 pr-4 py-4 bg-dark-800 border-2 border-dark-700 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-uno-blue transition-colors duration-200"
+              className="w-full pl-12 pr-4 py-4 glass-panel rounded-xl text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500/50 transition-all"
             />
           </div>
 
-          {/* Create Room Button */}
+          {/* Modern Create Room Button */}
           <button
             onClick={() => setIsModalOpen(true)}
             disabled={!isConnected}
-            className="px-8 py-4 bg-gradient-to-r from-uno-blue to-uno-green hover:shadow-glow-blue text-white font-semibold rounded-xl transition-all duration-300 hover:scale-105 whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed"
+            className="btn-modern px-8 whitespace-nowrap"
           >
-            <span className="flex items-center justify-center space-x-2">
-              <svg
-                className="w-5 h-5"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M12 4v16m8-8H4"
-                />
+            <span className="flex items-center justify-center gap-2">
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
               </svg>
-              <span>Create Room</span>
+              Create Room
             </span>
           </button>
         </div>
 
-        {/* Stats Bar */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
-          <div className="bg-dark-800 border border-dark-700 rounded-xl p-4 flex items-center space-x-4">
-            <div className="w-12 h-12 bg-uno-blue/20 rounded-lg flex items-center justify-center">
-              <svg
-                className="w-6 h-6 text-uno-blue"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"
-                />
-              </svg>
+        {/* Modern Stats Grid */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8 animate-fade-in-up" style={{ animationDelay: '0.2s' }}>
+          {[
+            { icon: '🏠', label: 'Active Rooms', value: activeRooms, color: 'blue' },
+            { icon: '👥', label: 'Players Online', value: totalPlayers, color: 'green' },
+            { icon: '🎯', label: 'Games in Progress', value: gamesInProgress, color: 'yellow' }
+          ].map((stat, idx) => (
+            <div key={idx} className="glass-panel-dark rounded-xl p-6 hover:scale-105 transition-all duration-300">
+              <div className="flex items-center space-x-4">
+                <div className={`w-12 h-12 rounded-lg bg-${stat.color}-500/20 flex items-center justify-center`}>
+                  <span className="text-2xl">{stat.icon}</span>
+                </div>
+                <div>
+                  <p className="text-gray-400 text-sm">{stat.label}</p>
+                  <p className="text-2xl font-bold text-white">{stat.value}</p>
+                </div>
+              </div>
             </div>
-            <div>
-              <p className="text-gray-400 text-sm">Active Rooms</p>
-              <p className="text-2xl font-bold text-white">{activeRooms}</p>
-            </div>
-          </div>
-
-          <div className="bg-dark-800 border border-dark-700 rounded-xl p-4 flex items-center space-x-4">
-            <div className="w-12 h-12 bg-uno-green/20 rounded-lg flex items-center justify-center">
-              <svg
-                className="w-6 h-6 text-uno-green"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"
-                />
-              </svg>
-            </div>
-            <div>
-              <p className="text-gray-400 text-sm">Players Online</p>
-              <p className="text-2xl font-bold text-white">{totalPlayers}</p>
-            </div>
-          </div>
-
-          <div className="bg-dark-800 border border-dark-700 rounded-xl p-4 flex items-center space-x-4">
-            <div className="w-12 h-12 bg-uno-yellow/20 rounded-lg flex items-center justify-center">
-              <svg
-                className="w-6 h-6 text-uno-yellow"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M13 10V3L4 14h7v7l9-11h-7z"
-                />
-              </svg>
-            </div>
-            <div>
-              <p className="text-gray-400 text-sm">Games in Progress</p>
-              <p className="text-2xl font-bold text-white">{gamesInProgress}</p>
-            </div>
-          </div>
+          ))}
         </div>
 
         {/* Room List */}
         {!isConnected ? (
-          <div className="text-center py-20">
-            <div className="text-6xl mb-4">🔌</div>
-            <h3 className="text-2xl font-poppins font-bold text-white mb-2">
+          <div className="text-center py-20 animate-fade-in-up">
+            <div className="relative inline-block mb-6">
+              <div className="w-20 h-20 rounded-full bg-gradient-to-r from-gray-700 to-gray-800 flex items-center justify-center mx-auto">
+                <span className="text-3xl">🔌</span>
+              </div>
+            </div>
+            <h3 className="text-xl font-bold text-white mb-2">
               Connecting to server...
             </h3>
-            <p className="text-gray-400">Please wait</p>
+            <p className="text-gray-400">Please wait while we establish connection</p>
           </div>
         ) : filteredRooms.length === 0 ? (
-          <div className="text-center py-20">
-            <div className="text-6xl mb-4">🎮</div>
-            <h3 className="text-2xl font-poppins font-bold text-white mb-2">
+          <div className="text-center py-20 animate-fade-in-up">
+            <div className="relative inline-block mb-6">
+              <div className="w-20 h-20 rounded-full bg-gradient-to-r from-gray-700 to-gray-800 flex items-center justify-center mx-auto">
+                <span className="text-3xl">🎮</span>
+              </div>
+            </div>
+            <h3 className="text-xl font-bold text-white mb-2">
               No rooms found
             </h3>
             <p className="text-gray-400 mb-6">
@@ -442,28 +395,28 @@ export default function Lobby() {
             </p>
             <button
               onClick={() => setIsModalOpen(true)}
-              className="px-8 py-3 bg-gradient-to-r from-uno-blue to-uno-green hover:shadow-glow-blue text-white font-semibold rounded-lg transition-all duration-300 hover:scale-105"
+              className="btn-modern"
             >
               Create Room
             </button>
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {filteredRooms.map((room) => (
-              <RoomCard
-                key={room.id}
-                roomName={room.roomName}
-                roomCode={room.roomCode}
-                players={room.players}
-                maxPlayers={room.maxPlayers}
-                onJoin={() => handleJoinRoom(room.id)}
-              />
+            {filteredRooms.map((room, idx) => (
+              <div key={room.id} className="animate-fade-in-up" style={{ animationDelay: `${0.1 + idx * 0.05}s` }}>
+                <RoomCard
+                  roomName={room.roomName}
+                  roomCode={room.roomCode}
+                  players={room.players}
+                  maxPlayers={room.maxPlayers}
+                  onJoin={() => handleJoinRoom(room.id)}
+                />
+              </div>
             ))}
           </div>
         )}
       </div>
 
-      {/* Create Room Modal */}
       <CreateRoomModal
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}

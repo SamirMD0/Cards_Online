@@ -1,3 +1,4 @@
+// Login.tsx - Modernized
 import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
@@ -28,44 +29,59 @@ export default function Login() {
   };
 
   return (
-    <div className="min-h-screen bg-dark-900">
+    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-black">
       <Navigation />
       
       <div className="flex items-center justify-center min-h-screen px-4 pt-20">
-        <div className="w-full max-w-md">
-          {/* Card */}
-          <div className="bg-dark-800 border-2 border-dark-700 rounded-2xl p-8 shadow-2xl">
-            {/* Title */}
+        <div className="w-full max-w-md animate-fade-in-up">
+          {/* Modern Card */}
+          <div className="glass-panel-dark rounded-2xl p-8 shadow-2xl">
+            {/* Title with Icon */}
             <div className="text-center mb-8">
-              <h1 className="text-4xl font-poppins font-extrabold text-white mb-2">
+              <div className="relative inline-block mb-4">
+                <div className="w-16 h-16 rounded-full bg-gradient-to-r from-blue-500 to-purple-500 flex items-center justify-center mx-auto">
+                  <span className="text-2xl">🎮</span>
+                </div>
+              </div>
+              <h1 className="text-3xl font-bold text-white mb-2">
                 Welcome Back!
               </h1>
-              <p className="text-gray-400">Login to play UNO with friends</p>
+              <p className="text-gray-400">Sign in to continue your gaming journey</p>
             </div>
 
             {/* Error Message */}
             {error && (
-              <div className="mb-6 p-4 bg-red-500/10 border border-red-500 rounded-lg">
-                <p className="text-red-400 text-sm">{error}</p>
+              <div className="mb-6 glass-panel border-l-4 border-red-500 animate-fade-in-up">
+                <div className="flex items-center gap-3 p-4">
+                  <div className="w-2 h-2 rounded-full bg-red-500 animate-pulse"></div>
+                  <p className="text-red-400 text-sm">{error}</p>
+                </div>
               </div>
             )}
 
-            {/* Form */}
+            {/* Modern Form */}
             <form onSubmit={handleSubmit} className="space-y-6">
               {/* Username/Email Input */}
               <div>
                 <label htmlFor="usernameOrEmail" className="block text-sm font-semibold text-gray-300 mb-2">
                   Username or Email
                 </label>
-                <input
-                  id="usernameOrEmail"
-                  type="text"
-                  value={usernameOrEmail}
-                  onChange={(e) => setUsernameOrEmail(e.target.value)}
-                  placeholder="Enter username or email"
-                  className="w-full px-4 py-3 bg-dark-700 border-2 border-dark-600 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-uno-blue transition-colors"
-                  required
-                />
+                <div className="relative">
+                  <input
+                    id="usernameOrEmail"
+                    type="text"
+                    value={usernameOrEmail}
+                    onChange={(e) => setUsernameOrEmail(e.target.value)}
+                    placeholder="Enter username or email"
+                    className="w-full input-modern pl-12"
+                    required
+                  />
+                  <div className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400">
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                    </svg>
+                  </div>
+                </div>
               </div>
 
               {/* Password Input */}
@@ -73,33 +89,47 @@ export default function Login() {
                 <label htmlFor="password" className="block text-sm font-semibold text-gray-300 mb-2">
                   Password
                 </label>
-                <input
-                  id="password"
-                  type="password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder="Enter password"
-                  className="w-full px-4 py-3 bg-dark-700 border-2 border-dark-600 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-uno-blue transition-colors"
-                  required
-                />
+                <div className="relative">
+                  <input
+                    id="password"
+                    type="password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    placeholder="Enter password"
+                    className="w-full input-modern pl-12"
+                    required
+                  />
+                  <div className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400">
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                    </svg>
+                  </div>
+                </div>
               </div>
 
               {/* Submit Button */}
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full py-4 bg-gradient-to-r from-uno-blue to-uno-green hover:shadow-glow-blue text-white font-bold text-lg rounded-lg transition-all duration-300 hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
+                className="w-full btn-modern"
               >
-                {loading ? 'Logging in...' : 'Login'}
+                {loading ? (
+                  <span className="flex items-center justify-center gap-2">
+                    <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                    Logging in...
+                  </span>
+                ) : (
+                  'Login'
+                )}
               </button>
             </form>
 
             {/* Register Link */}
-            <div className="mt-6 text-center">
+            <div className="mt-6 pt-6 border-t border-gray-800 text-center">
               <p className="text-gray-400">
                 Don't have an account?{' '}
-                <Link to="/register" className="text-uno-blue hover:text-uno-green font-semibold transition-colors">
-                  Register here
+                <Link to="/register" className="text-blue-400 hover:text-blue-300 font-semibold transition-colors">
+                  Create one now
                 </Link>
               </p>
             </div>

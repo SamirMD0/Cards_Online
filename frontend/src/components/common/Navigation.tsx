@@ -15,12 +15,12 @@ export default function Navigation() {
 
   return (
     <nav className="fixed top-0 left-0 right-0 z-50 bg-dark-900/80 backdrop-blur-md border-b border-dark-700">
-      <div className="max-w-7xl mx-auto px-3 sm:px-6 py-3 sm:py-4">
+      <div className="max-w-7xl mx-auto px-3 py-2 md:px-6 md:py-4">
         <div className="flex items-center justify-between">
           {/* Logo */}
           <Link to="/" className="flex items-center space-x-2 group">
             <div className="relative">
-              <span className="text-xl sm:text-2xl md:text-3xl font-poppins font-extrabold text-white">
+              <span className="text-lg md:text-2xl font-poppins font-extrabold text-white">
                 Cards Online
               </span>
               <div className="absolute -bottom-1 left-0 w-full h-1 bg-gradient-to-r from-uno-red via-uno-blue to-uno-green rounded-full transform scale-x-0 group-hover:scale-x-100 transition-transform duration-300" />
