@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect } from "react";
 
 interface CreateRoomModalProps {
   isOpen: boolean;
@@ -11,12 +11,12 @@ export default function CreateRoomModal({
   onClose,
   onCreate,
 }: CreateRoomModalProps) {
-  const [roomName, setRoomName] = useState('');
+  const [roomName, setRoomName] = useState("");
   const [maxPlayers, setMaxPlayers] = useState(4);
 
   useEffect(() => {
     if (isOpen) {
-      setRoomName('');
+      setRoomName("");
       setMaxPlayers(4);
     }
   }, [isOpen]);
@@ -106,7 +106,9 @@ export default function CreateRoomModal({
                 className="w-full h-2 bg-dark-700 rounded-lg appearance-none cursor-pointer accent-uno-blue"
                 aria-label="Maximum number of players"
                 style={{
-                  background: `linear-gradient(to right, #3182CE 0%, #3182CE ${((maxPlayers - 2) / 2) * 100}%, #1F2937 ${((maxPlayers - 2) / 2) * 100}%, #1F2937 100%)`,
+                  background: `linear-gradient(to right, #3182CE 0%, #3182CE ${
+                    ((maxPlayers - 2) / 2) * 100
+                  }%, #1F2937 ${((maxPlayers - 2) / 2) * 100}%, #1F2937 100%)`,
                 }}
               />
               <div className="flex justify-between mt-2 text-xs text-gray-500">
@@ -129,7 +131,7 @@ export default function CreateRoomModal({
             <button
               type="submit"
               disabled={!roomName.trim()}
-              className="flex-1 py-3 px-4 bg-gradient-to-r from-uno-blue to-uno-green hover:shadow-glow-blue text-white font-semibold rounded-lg transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:shadow-none"
+              className="flex-1 py-3 px-4 bg-gradient-to-r from-uno-blue to-uno-green text-white font-semibold rounded-lg btn-smooth disabled:opacity-50 disabled:cursor-not-allowed"
             >
               Create Room
             </button>

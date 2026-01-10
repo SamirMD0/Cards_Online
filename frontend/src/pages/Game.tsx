@@ -33,7 +33,7 @@ export default function Game() {
   const [showReconnectModal, setShowReconnectModal] = useState(false);
   const [isReconnecting, setIsReconnecting] = useState(false);
   const [canReconnect, setCanReconnect] = useState(false);
-  const [turnTimeRemaining, setTurnTimeRemaining] = useState<number>(30000);
+  const [turnTimeRemaining, setTurnTimeRemaining] = useState<number>(30);
 
   const userId = user?.id || null;
   const isMyTurn = gameState?.currentPlayer === userId;
@@ -129,7 +129,8 @@ export default function Game() {
       startTime: number;
     }) => {
       const elapsed = Date.now() - data.startTime;
-      setTurnTimeRemaining(data.duration - elapsed);
+      const remaining = Math.ceil((data.duration - elapsed) / 1000);
+      setTurnTimeRemaining(Math.max(0, remaining));
     };
 
     const handleTurnTimeout = (data: {
@@ -201,8 +202,28 @@ export default function Game() {
     };
   }, [roomId, userId, navigate]);
 
+  useEffect(() => {
+    if (!isMyTurn || !gameState?.gameStarted) {
+      return;
+    }
+
+    // Initialize countdown
+    let timeLeft = turnTimeRemaining;
+
+    // Update immediately
+    setTurnTimeRemaining(timeLeft);
+
+    // Start countdown
+    const interval = setInterval(() => {
+      timeLeft = Math.max(0, timeLeft - 1);
+      setTurnTimeRemaining(timeLeft);
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [isMyTurn, gameState?.currentPlayer]); // Re-run when turn changes
+
   // [Event handlers - UNCHANGED]
-  const handleReconnect = () => { };
+  const handleReconnect = () => {};
   const handleDismissReconnect = () => {
     setShowReconnectModal(false);
     setCanReconnect(false);
@@ -313,15 +334,15 @@ export default function Game() {
     otherPlayers.length === 1
       ? otherPlayers[0]
       : otherPlayers.length >= 2
-        ? otherPlayers[1]
-        : null;
+      ? otherPlayers[1]
+      : null;
   const leftOpponent = otherPlayers.length >= 2 ? otherPlayers[0] : null;
   const rightOpponent =
     otherPlayers.length >= 3
       ? otherPlayers[2]
       : otherPlayers.length === 2
-        ? otherPlayers[1]
-        : null;
+      ? otherPlayers[1]
+      : null;
 
   return (
     <div className="h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-black flex flex-col overflow-hidden">
@@ -407,13 +428,14 @@ export default function Game() {
             </div>
 
             {/* Floating grid pattern */}
-            <div className="absolute inset-0 opacity-[0.02] pointer-events-none"
+            <div
+              className="absolute inset-0 opacity-[0.02] pointer-events-none"
               style={{
                 backgroundImage: `
                   linear-gradient(to right, #ffffff 1px, transparent 1px),
                   linear-gradient(to bottom, #ffffff 1px, transparent 1px)
                 `,
-                backgroundSize: '30px 30px',
+                backgroundSize: "30px 30px",
               }}
             />
 
@@ -435,7 +457,7 @@ export default function Game() {
             >
               {/* Glow effect */}
               <div className="absolute inset-0 bg-gradient-to-r from-cyan-500/5 via-blue-500/5 to-purple-500/5 blur-xl"></div>
-              
+
               {/* Inner border */}
               <div className="absolute inset-4 rounded-2xl border border-white/5"></div>
 
@@ -455,12 +477,12 @@ export default function Game() {
           <div className="relative group">
             {/* Glow effect for player area */}
             <div className="absolute -inset-4 bg-gradient-to-r from-blue-500/30 via-purple-500/30 to-pink-500/30 rounded-3xl blur-xl opacity-0 group-hover:opacity-50 transition duration-500"></div>
-            
+
             {/* Glass panel background */}
             <div className="relative backdrop-blur-xl bg-gradient-to-b from-gray-800/80 to-gray-900/90 border-t border-white/10 rounded-t-3xl shadow-2xl overflow-hidden">
               {/* Shine effect */}
               <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-white/30 to-transparent"></div>
-              
+
               <PlayerHand
                 playerName={myPlayer?.name || "You"}
                 playerHand={playerHand}
@@ -483,7 +505,9 @@ export default function Game() {
               <div className="flex items-center gap-3 text-white font-bold">
                 <div className="w-3 h-3 rounded-full bg-white animate-ping"></div>
                 <span className="text-sm">YOUR TURN</span>
-                <span className="text-lg font-mono">⏱ {turnTimeRemaining}s</span>
+                <span className="text-lg font-mono">
+                  ⏱ {turnTimeRemaining}s
+                </span>
               </div>
             </div>
           </div>

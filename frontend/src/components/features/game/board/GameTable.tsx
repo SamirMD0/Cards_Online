@@ -1,9 +1,9 @@
 // frontend/src/components/features/game/board/GameTable.tsx
 // ✅ FIXED: Removed isMobile JS check - pure responsive CSS
 
-import UnoCard, { CardColor } from '../../uno-cards/UnoCard';
-import type { GameState } from '../../../../types';
-import { cn } from '../../../../lib/utils';
+import UnoCard, { CardColor } from "../../uno-cards/UnoCard";
+import type { GameState } from "../../../../types";
+import { cn } from "../../../../lib/utils";
 
 interface GameTableProps {
   gameState: GameState;
@@ -12,17 +12,17 @@ interface GameTableProps {
 }
 
 const colorMap: Record<string, string> = {
-  red: 'hsl(0, 85%, 50%)',
-  blue: 'hsl(210, 100%, 45%)',
-  green: 'hsl(145, 70%, 40%)',
-  yellow: 'hsl(45, 100%, 50%)',
-  wild: 'linear-gradient(135deg, hsl(0, 85%, 50%), hsl(210, 100%, 45%), hsl(145, 70%, 40%), hsl(45, 100%, 50%))',
+  red: "hsl(0, 85%, 50%)",
+  blue: "hsl(210, 100%, 45%)",
+  green: "hsl(145, 70%, 40%)",
+  yellow: "hsl(45, 100%, 50%)",
+  wild: "linear-gradient(135deg, hsl(0, 85%, 50%), hsl(210, 100%, 45%), hsl(145, 70%, 40%), hsl(45, 100%, 50%))",
 };
 
 export default function GameTable({
   gameState,
   isMyTurn,
-  onDrawCard
+  onDrawCard,
 }: GameTableProps) {
   // ✅ REMOVED: const isMobile = typeof window !== 'undefined' && window.innerWidth < 640;
 
@@ -38,8 +38,8 @@ export default function GameTable({
           onClick={onDrawCard}
           disabled={!isMyTurn}
           className={cn(
-            "relative transition-transform duration-200",
-            isMyTurn && "hover:scale-105 hover:-translate-y-1 active:scale-95"
+            "relative game-action-smooth",
+            isMyTurn && "cursor-pointer"
           )}
         >
           {/* Stacked cards effect - Hidden on mobile via sm: */}
@@ -76,7 +76,9 @@ export default function GameTable({
         <div
           className="w-8 h-8 sm:w-10 sm:h-10 md:w-14 md:h-14 rounded-full border-2 sm:border-4 border-white/40 shadow-xl animate-float"
           style={{
-            background: gameState.currentColor ? colorMap[gameState.currentColor] : 'white'
+            background: gameState.currentColor
+              ? colorMap[gameState.currentColor]
+              : "white",
           }}
         />
       </div>

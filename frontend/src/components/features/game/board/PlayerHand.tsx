@@ -1,10 +1,10 @@
 // frontend/src/components/features/game/board/PlayerHand.tsx
 
-import UnoCard, { CardColor } from '../../uno-cards/UnoCard';
-import PlayerAvatar from '../../../common/PlayerAvatar';
-import type { Card } from '../../../../types';
-import { useState } from 'react';
-import { cn } from '../../../../lib/utils';
+import UnoCard, { CardColor } from "../../uno-cards/UnoCard";
+import PlayerAvatar from "../../../common/PlayerAvatar";
+import type { Card } from "../../../../types";
+import { useState } from "react";
+import { cn } from "../../../../lib/utils";
 
 interface PlayerHandProps {
   playerName: string;
@@ -21,10 +21,10 @@ export default function PlayerHand({
   isMyTurn,
   pendingDraw,
   onCardClick,
-  onRequestHand
+  onRequestHand,
 }: PlayerHandProps) {
   const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
-  const isMobile = typeof window !== 'undefined' && window.innerWidth < 640;
+  const isMobile = typeof window !== "undefined" && window.innerWidth < 640;
 
   return (
     <div className="w-full">
@@ -32,7 +32,7 @@ export default function PlayerHand({
         {/* Header - Bigger on mobile */}
         <div className="flex justify-between items-center mb-2 sm:mb-3">
           <div className="flex items-center gap-2 sm:gap-2 md:gap-3">
-            <PlayerAvatar name={playerName} size={isMobile ? 'md' : 'sm'} />
+            <PlayerAvatar name={playerName} size={isMobile ? "md" : "sm"} />
             <div>
               <p className="font-heading font-bold text-white text-sm sm:text-sm md:text-base">
                 Your Hand
@@ -60,7 +60,9 @@ export default function PlayerHand({
           <div className="flex justify-center gap-0.5 sm:gap-1 min-w-min px-1 sm:px-2">
             {playerHand.length === 0 ? (
               <div className="text-center py-4 sm:py-6 px-4 sm:px-8 w-full">
-                <p className="text-muted-foreground text-sm sm:text-sm mb-2 sm:mb-3">No cards in hand</p>
+                <p className="text-muted-foreground text-sm sm:text-sm mb-2 sm:mb-3">
+                  No cards in hand
+                </p>
                 <button
                   onClick={onRequestHand}
                   className="px-4 sm:px-4 py-2.5 bg-accent hover:bg-accent/80 text-accent-foreground rounded-lg text-sm sm:text-sm font-medium transition-colors"
@@ -89,18 +91,23 @@ export default function PlayerHand({
                         translateY(${isHovered ? -12 : translateY}px)
                         scale(${isHovered ? 1.05 : 1})
                       `,
-                      marginLeft: index > 0
-                        ? (isMobile
-                          // Tighter spacing if many cards on mobile
-                          ? (totalCards > 7 ? '-1.75rem' : '-1rem')
-                          : '-0.75rem')
-                        : 0,
+                      marginLeft:
+                        index > 0
+                          ? isMobile
+                            ? // Tighter spacing if many cards on mobile
+                              totalCards > 7
+                              ? "-1.75rem"
+                              : "-1rem"
+                            : "-0.75rem"
+                          : 0,
                       zIndex: isHovered ? 50 : index,
                     }}
                     onMouseEnter={() => setHoveredIndex(index)}
                     onMouseLeave={() => setHoveredIndex(null)}
                     onTouchStart={() => setHoveredIndex(index)}
-                    onTouchEnd={() => setTimeout(() => setHoveredIndex(null), 300)}
+                    onTouchEnd={() =>
+                      setTimeout(() => setHoveredIndex(null), 300)
+                    }
                   >
                     <UnoCard
                       color={card.color as CardColor}
@@ -108,10 +115,10 @@ export default function PlayerHand({
                       faceUp={true}
                       onClick={() => onCardClick(card)}
                       disabled={!isMyTurn}
-                      size={isMobile ? 'sm' : 'sm'}
+                      size={isMobile ? "sm" : "sm"}
                       className={cn(
-                        'transition-shadow duration-200',
-                        isMyTurn && isHovered && 'ring-2 ring-primary shadow-xl'
+                        "card-hover",
+                        isMyTurn && isHovered && "ring-2 ring-primary shadow-xl"
                       )}
                     />
                   </div>

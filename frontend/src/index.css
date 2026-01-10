@@ -138,10 +138,10 @@
     -webkit-backdrop-filter: blur(16px);
     backdrop-filter: blur(16px);
     border: 1px solid hsl(var(--border) / 0.5);
-    box-shadow: 
+    box-shadow:
       0 8px 32px rgba(0, 0, 0, 0.3),
       inset 0 1px 0 hsl(var(--border) / 0.2);
-    transition: all var(--transition-smooth);
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
   }
 
   /* Modern Glass Panel Dark */
@@ -235,7 +235,7 @@
     @apply px-6 py-3 rounded-xl font-semibold relative overflow-hidden;
     background: linear-gradient(135deg, hsl(var(--primary)) 0%, hsl(45 100% 60%) 100%);
     color: hsl(var(--primary-foreground));
-    transition: all var(--transition-bounce);
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
   }
 
   .btn-modern:hover {
@@ -508,6 +508,77 @@
   /* Smooth Appear */
   .smooth-appear {
     animation: smooth-appear 0.5s var(--transition-elastic) forwards;
+  }
+
+  /* ========== SMOOTH BUTTON INTERACTIONS ========== */
+  .btn-smooth {
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  .btn-smooth:hover:not(:disabled) {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  }
+
+  .btn-smooth:active:not(:disabled) {
+    transform: translateY(0);
+    transition-duration: 0.1s;
+  }
+
+  /* ========== CARD HOVER EFFECTS ========== */
+  .card-hover {
+    transition: transform 0.2s ease-out, box-shadow 0.2s ease-out;
+  }
+
+  .card-hover:hover:not(:disabled) {
+    transform: translateY(-8px) scale(1.03);
+    box-shadow: 0 8px 16px rgba(0, 0, 0, 0.3);
+  }
+
+  /* ========== NAVIGATION LINKS ========== */
+  .nav-link-smooth {
+    position: relative;
+    transition: color 0.2s ease-out;
+  }
+
+  .nav-link-smooth::after {
+    content: '';
+    position: absolute;
+    bottom: -4px;
+    left: 0;
+    width: 0;
+    height: 2px;
+    background: currentColor;
+    transition: width 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  .nav-link-smooth:hover::after {
+    width: 100%;
+  }
+
+  /* ========== MENU ITEMS ========== */
+  .menu-item-smooth {
+    transition: background-color 0.15s ease-out, transform 0.15s ease-out;
+  }
+
+  .menu-item-smooth:hover {
+    background-color: rgba(255, 255, 255, 0.05);
+    transform: translateX(4px);
+  }
+
+  /* ========== GAME ACTIONS (Draw/Discard) ========== */
+  .game-action-smooth {
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  .game-action-smooth:hover:not(:disabled) {
+    transform: scale(1.05);
+    filter: brightness(1.1);
+  }
+
+  .game-action-smooth:active:not(:disabled) {
+    transform: scale(0.98);
+    transition-duration: 0.1s;
   }
 }
 

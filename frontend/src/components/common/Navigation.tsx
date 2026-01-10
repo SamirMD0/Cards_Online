@@ -31,10 +31,10 @@ export default function Navigation() {
           <div className="hidden md:flex items-center space-x-6">
             {user ? (
               <>
-                <Link to="/lobby" className="text-gray-300 hover:text-white font-medium transition-colors">
+               <Link to="/lobby" className="text-gray-300 hover:text-white font-medium nav-link-smooth">
                   Lobby
                 </Link>
-                <Link to="/friends" className="text-gray-300 hover:text-white font-medium transition-colors">
+                <Link to="/friends" className="text-gray-300 hover:text-white font-medium nav-link-smooth">
                   Friends
                 </Link>
                 <span className="text-gray-300 font-medium">
@@ -49,7 +49,7 @@ export default function Navigation() {
               </>
             ) : (
               <>
-                <Link to="/login" className="text-gray-300 hover:text-white font-medium transition-colors">
+                <Link to="/login" className="text-gray-300 hover:text-white font-medium nav-link-smooth">
                   Login
                 </Link>
                 <Link to="/register" className="px-6 py-2.5 bg-gradient-to-r from-uno-red to-uno-yellow text-white font-semibold rounded-lg hover:shadow-glow-red transition-all duration-300">

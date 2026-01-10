@@ -276,9 +276,9 @@ const CardWrapper = styled.div<{
   pointer-events: ${({ $disabled }) => ($disabled ? 'none' : 'auto')};
   width: ${({ $size }) => sizeMap[$size].width};
   height: ${({ $size }) => sizeMap[$size].height};
-  transition: transform 0.3s ease, box-shadow 0.3s ease;
+  transition: transform 0.2s ease-out, box-shadow 0.2s ease-out;
   
-  transform: ${({ $hovered }) => $hovered ? 'translateY(-10%)' : 'translateY(0)'};
+  transform: ${({ $hovered }) => $hovered ? 'translateY(-8px) scale(1.03)' : 'translateY(0)'};
   box-shadow: ${({ $hovered }) =>
-    $hovered ? '0 15px 30px rgba(0,0,0,0.5)' : '0 5px 10px rgba(0,0,0,0.3)'};
+    $hovered ? '0 8px 16px rgba(0,0,0,0.3)' : '0 5px 10px rgba(0,0,0,0.3)'};
 `;

@@ -1,4 +1,4 @@
-import PlayerAvatar from '../../common/PlayerAvatar';
+import PlayerAvatar from "../../common/PlayerAvatar";
 
 interface Player {
   id: string;
@@ -84,16 +84,15 @@ export default function RoomCard({
         onClick={onJoin}
         disabled={isFull}
         className={`
-          w-full py-3 px-4 rounded-lg font-semibold
-          transition-all duration-300
-          ${
-            isFull
-              ? 'bg-dark-700 text-gray-500 cursor-not-allowed'
-              : 'bg-gradient-to-r from-uno-blue to-uno-green text-white hover:shadow-glow-blue hover:scale-105'
-          }
-        `}
+    w-full py-3 px-4 rounded-lg font-semibold
+    ${
+      isFull
+        ? "bg-dark-700 text-gray-500 cursor-not-allowed"
+        : "bg-gradient-to-r from-uno-blue to-uno-green text-white btn-smooth"
+    }
+  `}
       >
-        {isFull ? 'Room Full' : 'Join Room'}
+        {isFull ? "Room Full" : "Join Room"}
       </button>
     </div>
   );
