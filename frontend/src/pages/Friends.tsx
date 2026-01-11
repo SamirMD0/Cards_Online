@@ -165,7 +165,7 @@ export default function Friends() {
           <div className="text-center">
             <div className="relative mb-8">
               <div className="w-20 h-20 mx-auto rounded-full bg-gradient-to-r from-cyan-500 via-blue-500 to-purple-500 animate-spin">
-                <div className="absolute inset-4 rounded-full bg-gray-900"></div>
+                
               </div>
               <div className="absolute inset-0 flex items-center justify-center">
                 <span className="text-3xl">👥</span>

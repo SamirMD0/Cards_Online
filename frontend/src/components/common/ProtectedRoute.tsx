@@ -1,5 +1,6 @@
 import { Navigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
+import Loader from '../../UI/LoadingBtn';
 
 export default function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
@@ -8,8 +9,7 @@ export default function ProtectedRoute({ children }: { children: React.ReactNode
     return (
       <div className="min-h-screen bg-dark-900 flex items-center justify-center">
         <div className="text-center">
-          <div className="text-6xl mb-4 animate-bounce">🎮</div>
-          <p className="text-xl text-gray-400">Loading...</p>
+          <Loader  />
         </div>
       </div>
     );

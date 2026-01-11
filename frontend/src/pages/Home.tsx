@@ -81,21 +81,7 @@ export default function Home() {
           </div>
         </div>
 
-        {/* Stats Bar */}
-        <div className="mt-12 grid grid-cols-3 gap-4 max-w-2xl animate-fade-in-up" style={{ animationDelay: '0.6s' }}>
-          <div className="text-center">
-            <div className="text-3xl font-bold text-white mb-2">10K+</div>
-            <div className="text-sm text-gray-400">Active Players</div>
-          </div>
-          <div className="text-center">
-            <div className="text-3xl font-bold text-white mb-2">24/7</div>
-            <div className="text-sm text-gray-400">Online Games</div>
-          </div>
-          <div className="text-center">
-            <div className="text-3xl font-bold text-white mb-2">99%</div>
-            <div className="text-sm text-gray-400">Uptime</div>
-          </div>
-        </div>
+       
       </div>
     </div>
   );
