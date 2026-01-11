@@ -1,220 +1,28 @@
-// Lobby.tsx - Modernized
-import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { useAuth } from '../context/AuthContext';
 import Navigation from '../components/common/Navigation';
 import RoomCard from '../components/features/lobby/RoomCard';
 import CreateRoomModal from '../components/features/lobby/CreateRoomModal';
-import { socketService } from '../socket';
-import { roomCookies } from '../utils/roomCookies';
-
-interface Room {
-  id: string;
-  roomName: string;
-  roomCode: string;
-  players: Array<{
-    id: string;
-    name: string;
-    isHost: boolean;
-    isReady: boolean;
-  }>;
-  maxPlayers: number;
-  gameStarted: boolean;
-}
+import { useLobbyLogic } from '../hooks/useLobbyLogic';
 
 export default function Lobby() {
-  const navigate = useNavigate();
-  const { user } = useAuth();
-  const [rooms, setRooms] = useState<Room[]>([]);
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [isConnected, setIsConnected] = useState(false);
-  const [error, setError] = useState('');
-
-  const [isCheckingRoom, setIsCheckingRoom] = useState(true);
-  const [showReconnectPrompt, setShowReconnectPrompt] = useState(false);
-  const [activeRoom, setActiveRoom] = useState<any>(null);
-
-  useEffect(() => {
-    if (!socketService.socket.connected) {
-      console.log('[Lobby] Socket not connected, connecting...');
-      socketService.connect();
-    }
-
-    const checkActiveRoom = async () => {
-      const room = roomCookies.getCurrentRoom();
-      
-      if (room) {
-        console.log('[Lobby] Found active room in cookies:', room);
-        socketService.socket.emit('check_room_exists', { roomId: room.roomId });
-      } else {
-        console.log('[Lobby] No active room found');
-        setIsCheckingRoom(false);
-      }
-    };
-
-    const handleConnect = () => {
-      console.log('[Lobby] ✅ Connected to server:', socketService.socket.id);
-      setIsConnected(true);
-      socketService.getRooms();
-      checkActiveRoom();
-    };
-
-    const handleDisconnect = () => {
-      console.log('[Lobby] Disconnected from server');
-      setIsConnected(false);
-    };
-
-    const handleRoomsList = (roomsList: Room[]) => {
-      setRooms(roomsList);
-    };
-
-    const handleRoomCreated = (data: { roomId: string; roomCode: string }) => {
-      console.log('[Lobby] Room created:', data);
-
-      if (user) {
-        roomCookies.setCurrentRoom(data.roomId, data.roomCode, user.username);
-      }
-    };
-
-    const handleJoinedRoom = (data: { roomId: string }) => {
-      console.log('[Lobby] Joined room:', data.roomId);
-      navigate(`/game/${data.roomId}`);
-    };
-
-    const handleShouldReconnect = (data: { roomId: string }) => {
-      console.log('[Lobby] Server says we should reconnect to:', data.roomId);
-      navigate(`/game/${data.roomId}`, { state: { reconnect: true } });
-    };
-
-    const handleRoomExists = (data: { exists: boolean; roomId: string; gameState?: any }) => {
-      console.log('[Lobby] Room exists check:', data);
-      setIsCheckingRoom(false);
-
-      if (data.exists) {
-        console.log('[Lobby] ✅ Room still active, prompting user...');
-        setActiveRoom(roomCookies.getCurrentRoom());
-        setShowReconnectPrompt(true);
-      } else {
-        console.log('[Lobby] ❌ Room no longer exists, clearing cookie');
-        roomCookies.clearCurrentRoom();
-      }
-    };
-
-    const handleError = (error: { message: string }) => {
-      console.error('[Lobby] Socket error:', error);
-      setError(error.message);
-      setTimeout(() => setError(''), 4000);
-    };
-
-    socketService.socket.on('connect', handleConnect);
-    socketService.socket.on('disconnect', handleDisconnect);
-    socketService.onRoomsList(handleRoomsList);
-    socketService.onRoomCreated(handleRoomCreated);
-    socketService.onJoinedRoom(handleJoinedRoom);
-    socketService.socket.on('should_reconnect', handleShouldReconnect);
-    socketService.socket.on('room_exists', handleRoomExists);
-    socketService.onError(handleError);
-
-    if (socketService.socket.connected) {
-      handleConnect();
-    }
-
-    const interval = setInterval(() => {
-      if (socketService.socket.connected) {
-        socketService.getRooms();
-      }
-    }, 5000);
-
-    return () => {
-      clearInterval(interval);
-      socketService.socket.off('connect', handleConnect);
-      socketService.socket.off('disconnect', handleDisconnect);
-      socketService.socket.off('should_reconnect', handleShouldReconnect);
-      socketService.socket.off('room_exists', handleRoomExists);
-      socketService.off('rooms_list');
-      socketService.off('room_created');
-      socketService.off('joined_room');
-      socketService.off('error');
-    };
-  }, [navigate, user]);
-
-  const handleCreateRoom = (roomName: string, maxPlayers: number) => {
-    if (roomCookies.hasActiveRoom()) {
-      const room = roomCookies.getCurrentRoom();
-      setError(`You're already in room "${room?.roomCode}". Leave it first.`);
-      setTimeout(() => setError(''), 4000);
-      return;
-    }
-
-    if (!isConnected) {
-      setError('Not connected to server');
-      setTimeout(() => setError(''), 4000);
-      return;
-    }
-    
-    socketService.createRoom(roomName, maxPlayers);
-  };
-
-  const handleJoinRoom = async (roomId: string) => {
-    const activeRoomId = roomCookies.getActiveRoomId();
-    if (activeRoomId && activeRoomId !== roomId) {
-      const room = roomCookies.getCurrentRoom();
-      setError(`You're already in room "${room?.roomCode}". Leave it first.`);
-      setTimeout(() => setError(''), 4000);
-      return;
-    }
-
-    if (!isConnected) {
-      setError('Not connected to server');
-      setTimeout(() => setError(''), 4000);
-      return;
-    }
-
-    if (!user) {
-      setError('Authentication required');
-      setTimeout(() => setError(''), 4000);
-      return;
-    }
-
-    const targetRoom = rooms.find(r => r.id === roomId);
-    if (!targetRoom) {
-      setError('Room not found');
-      setTimeout(() => setError(''), 4000);
-      return;
-    }
-
-    const playerName = user.username;
-    roomCookies.setCurrentRoom(roomId, targetRoom.roomCode, playerName);
-
-    console.log(`[Lobby] Attempting to join room ${roomId} as ${playerName}`);
-    socketService.joinRoom(roomId, playerName);
-  };
-
-  const handleRejoinActiveRoom = () => {
-    if (activeRoom) {
-      console.log('[Lobby] Rejoining active room:', activeRoom.roomId);
-      navigate(`/game/${activeRoom.roomId}`, { 
-        state: { reconnect: true }
-      });
-    }
-  };
-
-  const handleAbandonActiveRoom = () => {
-    console.log('[Lobby] User abandoned active room');
-    roomCookies.clearCurrentRoom();
-    setShowReconnectPrompt(false);
-    setActiveRoom(null);
-  };
-
-  const filteredRooms = rooms.filter((room) =>
-    room.roomName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    room.roomCode.toLowerCase().includes(searchQuery.toLowerCase())
-  );
-
-  const activeRooms = rooms.length;
-  const totalPlayers = rooms.reduce((sum, room) => sum + room.players.length, 0);
-  const gamesInProgress = rooms.filter(r => r.gameStarted).length;
+  const {
+    isModalOpen,
+    setIsModalOpen,
+    searchQuery,
+    setSearchQuery,
+    isConnected,
+    error,
+    isCheckingRoom,
+    showReconnectPrompt,
+    activeRoom,
+    handleCreateRoom,
+    handleJoinRoom,
+    handleRejoinActiveRoom,
+    handleAbandonActiveRoom,
+    filteredRooms,
+    activeRooms,
+    totalPlayers,
+    gamesInProgress,
+  } = useLobbyLogic();
 
   if (isCheckingRoom) {
     return (
@@ -279,7 +87,6 @@ export default function Lobby() {
     <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-black">
       <Navigation />
 
-      {/* Modern Connection Status */}
       <div className="fixed top-20 right-4 z-40">
         <div className={`flex items-center gap-2 px-4 py-2 rounded-full glass-panel ${isConnected ? 'border-l-4 border-green-500' : 'border-l-4 border-red-500'}`}>
           <div className={`w-2 h-2 rounded-full ${isConnected ? 'bg-green-500 animate-pulse' : 'bg-red-500'}`} />
@@ -289,7 +96,6 @@ export default function Lobby() {
         </div>
       </div>
 
-      {/* Modern Error Notification */}
       {error && (
         <div className="fixed top-20 left-1/2 transform -translate-x-1/2 z-50 glass-panel border-l-4 border-red-500 px-6 py-3 rounded-xl animate-fade-in-down max-w-md w-full">
           <div className="flex items-center gap-3">
@@ -299,9 +105,7 @@ export default function Lobby() {
         </div>
       )}
 
-      {/* Modern Content */}
       <div className="pt-24 pb-12 px-4 max-w-7xl mx-auto">
-        {/* Modern Header */}
         <div className="mb-12 text-center md:text-left animate-fade-in-up">
           <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold text-white mb-4 text-gradient">
             Game Lobby
@@ -311,9 +115,7 @@ export default function Lobby() {
           </p>
         </div>
 
-        {/* Modern Actions Bar */}
         <div className="flex flex-col md:flex-row gap-4 mb-8 animate-fade-in-up" style={{ animationDelay: '0.1s' }}>
-          {/* Modern Search */}
           <div className="flex-1 relative">
             <div className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400">
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -329,7 +131,6 @@ export default function Lobby() {
             />
           </div>
 
-          {/* Modern Create Room Button */}
           <button
             onClick={() => setIsModalOpen(true)}
             disabled={!isConnected}
@@ -344,7 +145,6 @@ export default function Lobby() {
           </button>
         </div>
 
-        {/* Modern Stats Grid */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8 animate-fade-in-up" style={{ animationDelay: '0.2s' }}>
           {[
             { icon: '🏠', label: 'Active Rooms', value: activeRooms, color: 'blue' },
@@ -365,7 +165,6 @@ export default function Lobby() {
           ))}
         </div>
 
-        {/* Room List */}
         {!isConnected ? (
           <div className="text-center py-20 animate-fade-in-up">
             <div className="relative inline-block mb-6">
