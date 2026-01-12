@@ -31,10 +31,16 @@ export function useGameLogic(roomId: string | undefined) {
   const isMyTurn = gameState?.currentPlayer === userId;
   const isReconnectAttempt = location.state?.reconnect === true;
 
+
+
+ 
+
   // Keep ref in sync
   useEffect(() => {
     gameStateRef.current = gameState;
   }, [gameState]);
+
+  
 
   // Reset the skip ref whenever the turn changes
   useEffect(() => {
@@ -49,6 +55,32 @@ export function useGameLogic(roomId: string | undefined) {
   const requestHand = useCallback(() => {
     socketService.socket.emit('request_hand');
   }, []);
+
+
+   // Add this to your useGameLogic.ts - Insert at the beginning of the hook
+  useEffect(() => {
+  // Listen for auth failures
+  const handleAuthFailed = (event: CustomEvent) => {
+    console.error("🔓 Socket authentication failed:", event.detail);
+    
+    // Clear invalid token
+    localStorage.removeItem('token');
+    
+    // Show notification
+    showNotification('Your session has expired. Please login again.');
+    
+    // Redirect to login after delay
+    setTimeout(() => {
+      navigate('/login');
+    }, 2000);
+  };
+
+  window.addEventListener('socket-auth-failed', handleAuthFailed as EventListener);
+
+  return () => {
+    window.removeEventListener('socket-auth-failed', handleAuthFailed as EventListener);
+  };
+}, [navigate, showNotification]);
 
   // --- EFFECT 1: Connection (Run Once) ---
   useEffect(() => {
