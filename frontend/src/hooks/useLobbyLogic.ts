@@ -29,12 +29,15 @@ export function useLobbyLogic() {
   const [isCheckingRoom, setIsCheckingRoom] = useState(true);
   const [showReconnectPrompt, setShowReconnectPrompt] = useState(false);
   const [activeRoom, setActiveRoom] = useState<any>(null);
+  
 
   useEffect(() => {
-    if (!socketService.socket.connected) {
-      socketService.connect();
-    }
-
+    const token = localStorage.getItem("token");
+  
+  if (!socketService.socket.connected && token) {
+    socketService.connect();
+  }
+  
     const checkActiveRoom = async () => {
       const room = roomCookies.getCurrentRoom();
       
