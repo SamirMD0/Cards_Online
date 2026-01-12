@@ -2,9 +2,8 @@
 
 ## 🌐 Live Demo
 
-**Frontend**: https://uno-online.vercel.app  
-**Backend**: https://uno-backend.up.railway.app  
-**Status**: https://uno-backend.up.railway.app/health/ready
+**Frontend**: https://cards-online-two.vercel.app  
+
 
 ---
 
