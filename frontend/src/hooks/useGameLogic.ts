@@ -32,9 +32,6 @@ export function useGameLogic(roomId: string | undefined) {
   const isReconnectAttempt = location.state?.reconnect === true;
 
 
-
- 
-
   // Keep ref in sync
   useEffect(() => {
     gameStateRef.current = gameState;

@@ -45,12 +45,28 @@ class SocketService {
     });
 
     this.socket.on('connect_error', (error) => {
-      console.error('Connection error:', error);
+      console.error('Connection error:', error.message);
+      
+      // ✅ CRITICAL FIX: Dispatch event if auth fails so UI can redirect
+      if (error.message === "Authentication required" || error.message === "invalid token") {
+        window.dispatchEvent(new CustomEvent('socket-auth-failed', { 
+          detail: error.message 
+        }));
+      }
+
       console.warn('⚠️ If server is on free tier, it may take 10-30s to wake up');
     });
   }
 
   connect() {
+    // ✅ CRITICAL FIX: Check token BEFORE trying to connect
+    // This prevents the "sending token: false" error in logs
+    const token = localStorage.getItem("token");
+    if (!token) {
+      console.warn("🚫 Aborting socket connection: No token found in localStorage");
+      return; 
+    }
+
     if (!this.socket.connected) {
       this.socket.connect();
     }
@@ -65,14 +81,10 @@ class SocketService {
   reconnect() {
     console.log('[Socket] Reconnecting with new token...');
     
+    // Just disconnect and connect again. 
+    // The 'auth' callback in constructor will automatically grab the new token.
     this.socket.disconnect();
-    
-    this.socket.auth = (cb: any) => {
-      const token = localStorage.getItem('token');
-      cb({ token });
-    };
-    
-    this.socket.connect();
+    this.connect();
   }
 
   // Room Management
