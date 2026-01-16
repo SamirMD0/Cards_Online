@@ -28,6 +28,22 @@ export default function Login() {
     }
   };
 
+  const handleTestLogin = async () => {
+    setError('');
+    setLoading(true);
+    setUsernameOrEmail('Tester_123');
+    setPassword('test1234567@');
+
+    try {
+      await login('Tester_123', 'test1234567@');
+      navigate('/lobby');
+    } catch (err: any) {
+      setError(err.message || 'Test login failed');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-black">
       <Navigation />
@@ -124,6 +140,18 @@ export default function Login() {
               </button>
             </form>
 
+            {/* Test Login Button */}
+            <div className="mt-4">
+              <button
+                type="button"
+                onClick={handleTestLogin}
+                disabled={loading}
+                className="w-full px-4 py-2.5 bg-gray-700/50 hover:bg-gray-700/70 text-gray-300 hover:text-white font-medium rounded-lg border border-gray-600 hover:border-gray-500 transition-all duration-200 text-sm"
+              >
+                Login as Tester
+              </button>
+            </div>
+
             {/* Register Link */}
             <div className="mt-6 pt-6 border-t border-gray-800 text-center">
               <p className="text-gray-400">
@@ -132,6 +160,7 @@ export default function Login() {
                   Create one now
                 </Link>
               </p>
+              <p className="text-red-400">To prevent "many login attempts",Login as Tester </p>
             </div>
           </div>
         </div>

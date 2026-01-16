@@ -5,165 +5,103 @@ const Loader = () => {
   return (
     <StyledWrapper>
       <div className="loader">
-        <div className="circle">
-          <div className="dot" />
-          <div className="outline" />
-        </div>
-        <div className="circle">
-          <div className="dot" />
-          <div className="outline" />
-        </div>
-        <div className="circle">
-          <div className="dot" />
-          <div className="outline" />
-        </div>
-        <div className="circle">
-          <div className="dot" />
-          <div className="outline" />
-        </div>
+        <div data-glitch="Loading..." className="glitch">Loading...</div>
       </div>
     </StyledWrapper>
   );
 }
 
 const StyledWrapper = styled.div`
-  .loader {
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    --color: hsl(0, 0%, 87%);
-    --animation: 2s ease-in-out infinite;
-  }
-
-  .loader .circle {
-    display: flex;
-    align-items: center;
-    justify-content: center;
+  .glitch {
     position: relative;
-    width: 20px;
-    height: 20px;
-    border: solid 2px var(--color);
-    border-radius: 50%;
-    margin: 0 10px;
-    background-color: transparent;
-    animation: circle-keys var(--animation);
+    font-size: 25px;
+    font-weight: 700;
+    line-height: 1.2;
+    color: #fff;
+    letter-spacing: 5px;
+    z-index: 1;
+    animation: shift 1s ease-in-out infinite alternate;
   }
 
-  .loader .circle .dot {
+  .glitch:before,
+  .glitch:after {
+    display: block;
+    content: attr(data-glitch);
     position: absolute;
-    transform: translate(-50%, -50%);
-    width: 16px;
-    height: 16px;
-    border-radius: 50%;
-    background-color: var(--color);
-    animation: dot-keys var(--animation);
+    top: 0;
+    left: 0;
+    opacity: 0.8;
   }
 
-  .loader .circle .outline {
-    position: absolute;
-    transform: translate(-50%, -50%);
-    width: 20px;
-    height: 20px;
-    border-radius: 50%;
-    animation: outline-keys var(--animation);
+  .glitch:before {
+    animation: glitch 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94) both infinite;
+    color: #8b00ff;
+    z-index: -1;
   }
 
-  .circle:nth-child(2) {
-    animation-delay: 0.3s;
+  .glitch:after {
+    animation: glitch 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94) reverse both infinite;
+    color: #00e571;
+    z-index: -2;
   }
 
-  .circle:nth-child(3) {
-    animation-delay: 0.6s;
-  }
-
-  .circle:nth-child(4) {
-    animation-delay: 0.9s;
-  }
-
-  .circle:nth-child(5) {
-    animation-delay: 1.2s;
-  }
-
-  .circle:nth-child(2) .dot {
-    animation-delay: 0.3s;
-  }
-
-  .circle:nth-child(3) .dot {
-    animation-delay: 0.6s;
-  }
-
-  .circle:nth-child(4) .dot {
-    animation-delay: 0.9s;
-  }
-
-  .circle:nth-child(5) .dot {
-    animation-delay: 1.2s;
-  }
-
-  .circle:nth-child(1) .outline {
-    animation-delay: 0.9s;
-  }
-
-  .circle:nth-child(2) .outline {
-    animation-delay: 1.2s;
-  }
-
-  .circle:nth-child(3) .outline {
-    animation-delay: 1.5s;
-  }
-
-  .circle:nth-child(4) .outline {
-    animation-delay: 1.8s;
-  }
-
-  .circle:nth-child(5) .outline {
-    animation-delay: 2.1s;
-  }
-
-  @keyframes circle-keys {
+  @keyframes glitch {
     0% {
-      transform: scale(1);
-      opacity: 1;
+      transform: translate(0);
     }
 
-    50% {
-      transform: scale(1.5);
-      opacity: 0.5;
+    20% {
+      transform: translate(-3px, 3px);
     }
 
-    100% {
-      transform: scale(1);
-      opacity: 1;
-    }
-  }
-
-  @keyframes dot-keys {
-    0% {
-      transform: scale(1);
+    40% {
+      transform: translate(-3px, -3px);
     }
 
-    50% {
-      transform: scale(0);
+    60% {
+      transform: translate(3px, 3px);
     }
 
-    100% {
-      transform: scale(1);
+    80% {
+      transform: translate(3px, -3px);
+    }
+
+    to {
+      transform: translate(0);
     }
   }
 
-  @keyframes outline-keys {
-    0% {
-      transform: scale(0);
-      outline: solid 20px var(--color);
-      outline-offset: 0;
-      opacity: 1;
+  @keyframes shift {
+    0%, 40%, 44%, 58%, 61%, 65%, 69%, 73%, 100% {
+      transform: skewX(0deg);
     }
 
-    100% {
-      transform: scale(1);
-      outline: solid 0 transparent;
-      outline-offset: 20px;
-      opacity: 0;
+    41% {
+      transform: skewX(10deg);
+    }
+
+    42% {
+      transform: skewX(-10deg);
+    }
+
+    59% {
+      transform: skewX(40deg) skewY(10deg);
+    }
+
+    60% {
+      transform: skewX(-40deg) skewY(-10deg);
+    }
+
+    63% {
+      transform: skewX(10deg) skewY(-5deg);
+    }
+
+    70% {
+      transform: skewX(-50deg) skewY(-20deg);
+    }
+
+    71% {
+      transform: skewX(10deg) skewY(-10deg);
     }
   }`;
 
