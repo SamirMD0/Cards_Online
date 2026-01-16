@@ -3,7 +3,6 @@
 import UnoCard, { CardColor } from "../../uno-cards/UnoCard";
 import PlayerAvatar from "../../../common/PlayerAvatar";
 import type { Card } from "../../../../types";
-import { useState } from "react";
 import { cn } from "../../../../lib/utils";
 
 interface PlayerHandProps {
@@ -23,13 +22,11 @@ export default function PlayerHand({
   onCardClick,
   onRequestHand,
 }: PlayerHandProps) {
-  const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
   const isMobile = typeof window !== "undefined" && window.innerWidth < 640;
 
   return (
     <div className="w-full">
       <div className="glass-panel mx-1 sm:mx-2 md:mx-4 mb-1 sm:mb-2 md:mb-4 rounded-xl sm:rounded-2xl p-2 sm:p-3 md:p-4 max-w-5xl lg:mx-auto">
-        {/* Header - Bigger on mobile */}
         <div className="flex justify-between items-center mb-2 sm:mb-3">
           <div className="flex items-center gap-2 sm:gap-2 md:gap-3">
             <PlayerAvatar name={playerName} size={isMobile ? "md" : "sm"} />
@@ -55,7 +52,6 @@ export default function PlayerHand({
           )}
         </div>
 
-        {/* Cards - CENTERED ON MOBILE with BIGGER SIZE */}
         <div className="relative overflow-x-auto pb-1 sm:pb-2 scrollbar-hide">
           <div className="flex justify-center gap-0.5 sm:gap-1 min-w-min px-1 sm:px-2">
             {playerHand.length === 0 ? (
@@ -76,38 +72,28 @@ export default function PlayerHand({
                 const centerIndex = (totalCards - 1) / 2;
                 const offset = index - centerIndex;
 
-                // Mobile: BIGGER cards, less rotation
                 const rotation = isMobile ? offset * 0.5 : offset * 2;
                 const translateY = Math.abs(offset) * (isMobile ? 1 : 3);
-                const isHovered = hoveredIndex === index;
 
                 return (
                   <div
                     key={card.id}
-                    className="relative transition-all duration-200 ease-out touch-manipulation"
+                    // ✅ CSS-only hover: Uses group/card to trigger child styles
+                    // !rotate-0 and !-translate-y override the inline styles below
+                    className={cn(
+                      "group/card relative transition-all duration-200 ease-out touch-manipulation",
+                      "hover:z-50 hover:!rotate-0 hover:!-translate-y-[12px] hover:scale-105"
+                    )}
                     style={{
-                      transform: `
-                        rotate(${isHovered ? 0 : rotation}deg) 
-                        translateY(${isHovered ? -12 : translateY}px)
-                        scale(${isHovered ? 1.05 : 1})
-                      `,
+                      transform: `rotate(${rotation}deg) translateY(${translateY}px)`,
                       marginLeft:
                         index > 0
                           ? isMobile
-                            ? // Tighter spacing if many cards on mobile
-                              totalCards > 7
-                              ? "-1.75rem"
-                              : "-1rem"
+                            ? totalCards > 7 ? "-1.75rem" : "-1rem"
                             : "-0.75rem"
                           : 0,
-                      zIndex: isHovered ? 50 : index,
+                      zIndex: index,
                     }}
-                    onMouseEnter={() => setHoveredIndex(index)}
-                    onMouseLeave={() => setHoveredIndex(null)}
-                    onTouchStart={() => setHoveredIndex(index)}
-                    onTouchEnd={() =>
-                      setTimeout(() => setHoveredIndex(null), 300)
-                    }
                   >
                     <UnoCard
                       color={card.color as CardColor}
@@ -115,10 +101,11 @@ export default function PlayerHand({
                       faceUp={true}
                       onClick={() => onCardClick(card)}
                       disabled={!isMyTurn}
-                      size={isMobile ? "sm" : "sm"}
+                      size="sm"
                       className={cn(
-                        "card-hover",
-                        isMyTurn && isHovered && "ring-2 ring-primary shadow-xl"
+                        "card-hover transition-all",
+                        // ✅ Ring only shows on hover if it's the player's turn
+                        isMyTurn && "group-hover/card:ring-2 group-hover/card:ring-primary group-hover/card:shadow-xl"
                       )}
                     />
                   </div>

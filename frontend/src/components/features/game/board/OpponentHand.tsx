@@ -5,6 +5,7 @@ import UnoCard from '../../uno-cards/UnoCard';
 import PlayerAvatar from '../../../common/PlayerAvatar';
 import type { Player } from '../../../../types';
 import { cn } from '../../../../lib/utils';
+import { memo } from 'react';
 
 interface OpponentHandProps {
   player: Player;
@@ -12,11 +13,11 @@ interface OpponentHandProps {
   position: 'top' | 'left' | 'right';
 }
 
-export default function OpponentHand({
+const OpponentHand = ({
   player,
   isCurrentTurn,
   position
-}: OpponentHandProps) {
+}: OpponentHandProps) => {
   // ✅ Pure CSS: Responsive card counts via breakpoints
   const isVertical = position === 'left' || position === 'right';
 
@@ -127,3 +128,4 @@ export default function OpponentHand({
     </div>
   );
 }
+export default memo(OpponentHand);
