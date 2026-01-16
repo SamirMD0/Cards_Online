@@ -2,7 +2,7 @@
 // ✅ MODERNIZED: Sleek, contemporary design with glassmorphism and responsive layout
 
 import { useParams } from "react-router-dom";
-import { useMemo, useCallback } from "react";
+import { useMemo, useCallback, useEffect, useRef } from "react";
 import Navigation from "../components/common/Navigation";
 import GameHeader from "../components/features/game/ui/GameHeader";
 import GameTable from "../components/features/game/board/GameTable";
@@ -20,6 +20,9 @@ import { useGameTimer } from "../hooks/useGameTimer";
 export default function Game() {
   const { roomId } = useParams<{ roomId: string }>();
 
+  const showNotificationRef = useRef<(message: string) => void>();
+  const handleTimerStartedRef = useRef<(data: { duration: number; startTime: number }) => void>();
+
   // 1. Data Logic
   const {
     gameState,
@@ -33,7 +36,10 @@ export default function Game() {
     handleDraw,
     handleLeaveRoom,
     requestHand,
-  } = useGameState(roomId);
+  } = useGameState(roomId, {
+    onNotification: (msg) => showNotificationRef.current?.(msg),
+    onTurnTimerStarted: (data) => handleTimerStartedRef.current?.(data),
+  });
 
   // 2. UI Logic
   const {
@@ -48,12 +54,20 @@ export default function Game() {
     showNotification
   } = useGameUI(gameState);
 
-  // 3. Performance/Timer Logic
-  const { turnTimeRemaining } = useGameTimer(
+  useEffect(() => {
+    showNotificationRef.current = showNotification;
+  }, [showNotification]);
+
+  // 3. Timer Logic
+  const { turnTimeRemaining, handleTimerStarted } = useGameTimer(
     gameState?.gameStarted || false,
     isMyTurn,
     roomId
   );
+
+  useEffect(() => {
+    handleTimerStartedRef.current = handleTimerStarted;
+  }, [handleTimerStarted]);
 
   // --- Opponent Sorting ---
   const otherPlayers = useMemo(() =>
@@ -68,7 +82,6 @@ export default function Game() {
   }, [otherPlayers]);
 
   // --- Handlers ---
-  // ✅ CRITICAL FIX: Memoize callback to prevent PlayerHand re-renders
   const onCardClick = useCallback((card: any) => {
     if (!isMyTurn) {
       showNotification("It's not your turn!");
@@ -317,8 +330,8 @@ export default function Game() {
       />
 
       <GameOverModal
-        isOpen={showGameOver}
-        winner={winner?.name || ""}
+        isOpen={showGameOver && !!gameState?.winner}
+        winner={winner?.name || gameState?.players?.find(p => p.id === gameState.winner)?.name || "Unknown"}
         onClose={handleLeaveRoom}
       />
 

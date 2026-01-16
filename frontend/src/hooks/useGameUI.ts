@@ -15,50 +15,23 @@ export function useGameUI(gameState: GameState | null) {
     gameStateRef.current = gameState;
   }, [gameState]);
 
-  // --- Notification Logic ---
   const showNotification = useCallback((message: string) => {
     setNotification(message);
-    setTimeout(() => setNotification(""), 3000);
   }, []);
 
-  // --- Socket Listeners for UI Events ---
   useEffect(() => {
-    const handleGameStarted = () => showNotification('Game started! 🎮');
-
-    // ✅ CRITICAL FIX: Use gameStateRef to access current state, not stale closure
-    const handleCardPlayed = (data: any) => {
-      const currentPlayers = gameStateRef.current?.players || [];
-      const player = currentPlayers.find((p) => p.id === data.playerId);
-      if (player) showNotification(`${player.name} played ${data.card.value}`);
-    };
-
-    const handlePlayerReconnected = (data: any) => showNotification(`${data.playerName} reconnected`);
-    const handleTurnTimeout = (data: { playerName: string }) => showNotification(`⏱️ ${data.playerName}'s turn timed out!`);
-    const handleError = (error: { message: string }) => showNotification(error.message);
-
-    socketService.socket.on('game_started', handleGameStarted);
-    socketService.socket.on('card_played', handleCardPlayed);
-    socketService.socket.on('player_reconnected', handlePlayerReconnected);
-    socketService.socket.on('turn_timeout', handleTurnTimeout);
-    socketService.socket.on('error', handleError);
-
-    return () => {
-      socketService.socket.off('game_started', handleGameStarted);
-      socketService.socket.off('card_played', handleCardPlayed);
-      socketService.socket.off('player_reconnected', handlePlayerReconnected);
-      socketService.socket.off('turn_timeout', handleTurnTimeout);
-      socketService.socket.off('error', handleError);
-    };
-  }, [showNotification]); // ✅ FIXED: Only depend on showNotification, not gameState.players
-
-  // --- Modal Logic (FIXED) ---
-  useEffect(() => {
-    // OLD ERROR: if (gameState?.status === 'ended') ...
-    // NEW FIX: Check if a winner is declared
     if (gameState?.winner) {
       setShowGameOver(true);
+    } else {
+      setShowGameOver(false);
     }
   }, [gameState?.winner]);
+
+  useEffect(() => {
+    if (!notification) return;
+    const timeoutId = setTimeout(() => setNotification(""), 3000);
+    return () => clearTimeout(timeoutId);
+  }, [notification]);
 
   const handleCloseColorPicker = () => {
     setShowColorPicker(false);

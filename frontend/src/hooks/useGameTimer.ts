@@ -1,73 +1,60 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { socketService } from '../socket';
 
 export function useGameTimer(gameStarted: boolean, isMyTurn: boolean, roomId: string | undefined) {
   const [turnTimeRemaining, setTurnTimeRemaining] = useState(30);
+  const turnTimeRemainingRef = useRef(30);
   const hasSkippedTurnRef = useRef(false);
-  const rafIdRef = useRef<number | null>(null);
+  const intervalIdRef = useRef<NodeJS.Timeout | null>(null);
+  const lastDisplayUpdateRef = useRef(0);
 
-  // Sync with server timer events
-  useEffect(() => {
-    const handleTurnTimerStarted = (data: { duration: number; startTime: number }) => {
-      const elapsed = Date.now() - data.startTime;
-      const remaining = Math.ceil((data.duration - elapsed) / 1000);
-      setTurnTimeRemaining(Math.max(0, remaining));
-      hasSkippedTurnRef.current = false;
-    };
-
-    socketService.socket.on('turn_timer_started', handleTurnTimerStarted);
-    return () => {
-      socketService.socket.off('turn_timer_started', handleTurnTimerStarted);
-    };
+  const handleTimerStarted = useCallback((data: { duration: number; startTime: number }) => {
+    const elapsed = Date.now() - data.startTime;
+    const remaining = Math.ceil((data.duration - elapsed) / 1000);
+    const clamped = Math.max(0, remaining);
+    turnTimeRemainingRef.current = clamped;
+    setTurnTimeRemaining(clamped);
+    hasSkippedTurnRef.current = false;
+    lastDisplayUpdateRef.current = Date.now();
   }, []);
 
-  // ✅ CRITICAL FIX: Use requestAnimationFrame instead of setInterval for smoother updates
   useEffect(() => {
     if (!gameStarted || !isMyTurn) {
-      if (rafIdRef.current) {
-        cancelAnimationFrame(rafIdRef.current);
-        rafIdRef.current = null;
+      if (intervalIdRef.current) {
+        clearInterval(intervalIdRef.current);
+        intervalIdRef.current = null;
       }
       return;
     }
 
-    let lastUpdate = Date.now();
-
-    const tick = () => {
+    intervalIdRef.current = setInterval(() => {
+      const next = Math.max(0, turnTimeRemainingRef.current - 1);
+      turnTimeRemainingRef.current = next;
       const now = Date.now();
-      const elapsed = now - lastUpdate;
-
-      // Only update every second to prevent unnecessary re-renders
-      if (elapsed >= 1000) {
-        setTurnTimeRemaining((prev) => {
-          const next = Math.max(0, prev - 1);
-          // ✅ OPTIMIZATION: Only update if value actually changed
-          return next !== prev ? next : prev;
-        });
-        lastUpdate = now;
+      if (now - lastDisplayUpdateRef.current >= 1000) {
+        setTurnTimeRemaining(next);
+        lastDisplayUpdateRef.current = now;
       }
-
-      rafIdRef.current = requestAnimationFrame(tick);
-    };
-
-    rafIdRef.current = requestAnimationFrame(tick);
+    }, 1000);
 
     return () => {
-      if (rafIdRef.current) {
-        cancelAnimationFrame(rafIdRef.current);
-        rafIdRef.current = null;
+      if (intervalIdRef.current) {
+        clearInterval(intervalIdRef.current);
+        intervalIdRef.current = null;
       }
     };
   }, [gameStarted, isMyTurn]);
 
-  // Handle Timeout (Auto-skip)
   useEffect(() => {
-    if (turnTimeRemaining === 0 && isMyTurn && !hasSkippedTurnRef.current && roomId) {
-      console.log("Timer finished. Skipping turn...");
-      hasSkippedTurnRef.current = true;
-      socketService.socket.emit("skip_turn", { roomId });
-    }
-  }, [turnTimeRemaining, isMyTurn, roomId]);
+    const checkTimeout = setInterval(() => {
+      if (turnTimeRemainingRef.current === 0 && isMyTurn && !hasSkippedTurnRef.current && roomId) {
+        hasSkippedTurnRef.current = true;
+        socketService.socket.emit("skip_turn", { roomId });
+      }
+    }, 100);
 
-  return { turnTimeRemaining };
+    return () => clearInterval(checkTimeout);
+  }, [isMyTurn, roomId]);
+
+  return { turnTimeRemaining, handleTimerStarted };
 }

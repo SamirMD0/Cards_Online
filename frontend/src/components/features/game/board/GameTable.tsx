@@ -1,6 +1,7 @@
 // frontend/src/components/features/game/board/GameTable.tsx
 // ✅ FIXED: Removed isMobile JS check - pure responsive CSS
 
+import { memo } from "react";
 import UnoCard, { CardColor } from "../../uno-cards/UnoCard";
 import type { GameState } from "../../../../types";
 import { cn } from "../../../../lib/utils";
@@ -19,7 +20,7 @@ const colorMap: Record<string, string> = {
   wild: "linear-gradient(135deg, hsl(0, 85%, 50%), hsl(210, 100%, 45%), hsl(145, 70%, 40%), hsl(45, 100%, 50%))",
 };
 
-export default function GameTable({
+const GameTable = memo(function GameTable({
   gameState,
   isMyTurn,
   onDrawCard,
@@ -107,4 +108,6 @@ export default function GameTable({
       </div>
     </div>
   );
-}
+});
+
+export default GameTable;

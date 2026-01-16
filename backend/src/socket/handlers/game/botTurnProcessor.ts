@@ -104,10 +104,22 @@ export async function processBotTurn(
       
       if (checkWinner(bot)) {
         game.winner = bot.id;
+        
         io.to(roomId).emit('game_over', {
           winner: bot.name,
           winnerId: bot.id
         });
+        
+        io.to(roomId).emit('game_state', game.getPublicState());
+        await gameManager.saveGame(roomId);
+        
+        // Trigger cleanup (async - don't await)
+        const { cleanupFinishedGame } = await import('./gameCleanup.js');
+        const { RoomService } = await import('../../../services/RoomService.js');
+        const roomService = RoomService.getInstance();
+        cleanupFinishedGame(io, roomId, game, gameManager, roomService)
+          .catch(err => console.error('[BotTurn] Cleanup error:', err));
+        
         return;
       }
       
@@ -122,6 +134,11 @@ export async function processBotTurn(
     gameManager.resetGameTimer(roomId);
     await gameManager.saveGame(roomId);
 
+    // ✅ Check if game ended before processing next turn
+    if (game.winner) {
+      return;
+    }
+
     // ✅ NEW: Start timer for next player (if human)
     const nextPlayer = game.players.find(p => p.id === game.currentPlayer);
     if (nextPlayer && !nextPlayer.isBot) {
@@ -129,7 +146,7 @@ export async function processBotTurn(
       await timerManager.startTimer(io, roomId, gameManager);
     }
 
-    if (nextPlayer?.isBot) {
+    if (nextPlayer?.isBot && !game.winner) {
       setTimeout(() => processBotTurn(io, game, roomId, gameManager), 1500);
     }
     

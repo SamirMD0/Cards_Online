@@ -70,15 +70,13 @@ const GameHeader = memo(({
     </div>
   );
 }, (prevProps, nextProps) => {
-  // ✅ OPTIMIZATION: Custom comparison - only re-render when meaningful props change
-  // Don't re-render on every timer tick, only when second changes
   return (
     prevProps.isMyTurn === nextProps.isMyTurn &&
     prevProps.currentPlayerName === nextProps.currentPlayerName &&
     prevProps.gameState.direction === nextProps.gameState.direction &&
     prevProps.gameState.deckCount === nextProps.gameState.deckCount &&
     prevProps.gameState.pendingDraw === nextProps.gameState.pendingDraw &&
-    Math.floor((prevProps.turnTimeRemaining || 0) / 1000) === Math.floor((nextProps.turnTimeRemaining || 0) / 1000)
+    prevProps.turnTimeRemaining === nextProps.turnTimeRemaining
   );
 });
 
