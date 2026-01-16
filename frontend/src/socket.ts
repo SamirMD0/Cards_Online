@@ -6,8 +6,8 @@ const SERVER_URL = import.meta.env.VITE_SERVER_URL;
 if (!SERVER_URL) {
   throw new Error(
     "FATAL: VITE_SERVER_URL not set. " +
-      "Create frontend/.env.production with: " +
-      "VITE_SERVER_URL=https://your-app.fly.dev"
+    "Create frontend/.env.production with: " +
+    "VITE_SERVER_URL=https://your-app.fly.dev"
   );
 }
 
@@ -82,6 +82,19 @@ class SocketService {
   }
 
   disconnect() {
+    if (this.socket.connected) {
+      this.socket.disconnect();
+    }
+  }
+
+  // ✅ CRITICAL FIX: Add cleanup method to remove all listeners
+  cleanup() {
+    // Remove core connection listeners
+    this.socket.off("connect");
+    this.socket.off("disconnect");
+    this.socket.off("connect_error");
+
+    // Disconnect if connected
     if (this.socket.connected) {
       this.socket.disconnect();
     }

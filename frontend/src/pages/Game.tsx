@@ -1,8 +1,8 @@
 // frontend/src/pages/Game.tsx
 // ✅ MODERNIZED: Sleek, contemporary design with glassmorphism and responsive layout
 
-import { useParams, useNavigate } from "react-router-dom";
-import { useMemo } from "react";
+import { useParams } from "react-router-dom";
+import { useMemo, useCallback } from "react";
 import Navigation from "../components/common/Navigation";
 import GameHeader from "../components/features/game/ui/GameHeader";
 import GameTable from "../components/features/game/board/GameTable";
@@ -19,7 +19,6 @@ import { useGameTimer } from "../hooks/useGameTimer";
 
 export default function Game() {
   const { roomId } = useParams<{ roomId: string }>();
-  const navigate = useNavigate();
 
   // 1. Data Logic
   const {
@@ -32,12 +31,11 @@ export default function Game() {
     isReconnecting,
     handleReconnect,
     handleDraw,
-    error,
     handleLeaveRoom,
     requestHand,
   } = useGameState(roomId);
 
-  // 2. UI Logic (Pass canReconnect to trigger modal)
+  // 2. UI Logic
   const {
     showColorPicker,
     showGameOver,
@@ -48,18 +46,18 @@ export default function Game() {
     openColorPicker,
     handleCloseColorPicker,
     showNotification
-  } = useGameUI(gameState, canReconnect);
+  } = useGameUI(gameState);
 
   // 3. Performance/Timer Logic
   const { turnTimeRemaining } = useGameTimer(
-    gameState?.gameStarted || false, 
-    isMyTurn, 
+    gameState?.gameStarted || false,
+    isMyTurn,
     roomId
   );
 
   // --- Opponent Sorting ---
-  const otherPlayers = useMemo(() => 
-    (gameState?.players || []).filter((p) => p.id !== userId), 
+  const otherPlayers = useMemo(() =>
+    (gameState?.players || []).filter((p) => p.id !== userId),
     [gameState?.players, userId]
   );
 
@@ -70,7 +68,8 @@ export default function Game() {
   }, [otherPlayers]);
 
   // --- Handlers ---
-  const onCardClick = (card: any) => {
+  // ✅ CRITICAL FIX: Memoize callback to prevent PlayerHand re-renders
+  const onCardClick = useCallback((card: any) => {
     if (!isMyTurn) {
       showNotification("It's not your turn!");
       return;
@@ -84,7 +83,7 @@ export default function Game() {
     } else {
       socketService.playCard(card.id);
     }
-  };
+  }, [isMyTurn, gameState?.pendingDraw, showNotification, openColorPicker]);
 
   // --- Views ---
 
@@ -255,7 +254,7 @@ export default function Game() {
             >
               {/* Glow effect */}
               <div className="absolute inset-0 bg-gradient-to-r from-cyan-500/5 via-blue-500/5 to-purple-500/5 blur-xl"></div>
-              
+
               {/* Inner border */}
               <div className="absolute inset-4 rounded-2xl border border-white/5"></div>
 
@@ -275,12 +274,12 @@ export default function Game() {
           <div className="relative group">
             {/* Glow effect for player area */}
             <div className="absolute -inset-4 bg-gradient-to-r from-blue-500/30 via-purple-500/30 to-pink-500/30 rounded-3xl blur-xl opacity-0 group-hover:opacity-50 transition duration-500"></div>
-            
+
             {/* Glass panel background */}
             <div className="relative backdrop-blur-xl bg-gradient-to-b from-gray-800/80 to-gray-900/90 border-t border-white/10 rounded-t-3xl shadow-2xl overflow-hidden">
               {/* Shine effect */}
               <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-white/30 to-transparent"></div>
-              
+
               <PlayerHand
                 playerName={myPlayer?.name || "You"}
                 playerHand={playerHand}

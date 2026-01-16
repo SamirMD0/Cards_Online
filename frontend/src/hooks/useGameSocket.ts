@@ -63,6 +63,60 @@ export function useGameSocket({
     socketService.leaveRoom();
   }, []);
 
+  // ✅ CRITICAL FIX: Stabilize callbacks with useCallback to prevent listener churn
+  const handleGameState = useCallback((state: GameState) => {
+    onGameState(state);
+  }, [onGameState]);
+
+  const handleGameStarted = useCallback((state: GameState) => {
+    onGameStarted(state);
+    setTimeout(() => requestHand(), 500);
+  }, [onGameStarted, requestHand]);
+
+  const handleHandUpdate = useCallback((data: { hand: Card[] }) => {
+    onHandUpdate(data.hand);
+  }, [onHandUpdate]);
+
+  const handleCardPlayed = useCallback((data: any) => {
+    onCardPlayed(data);
+  }, [onCardPlayed]);
+
+  const handleGameOver = useCallback((data: { winner: string; winnerId: string }) => {
+    onGameOver(data);
+  }, [onGameOver]);
+
+  const handleError = useCallback((error: { message: string; shouldReconnect?: boolean }) => {
+    onError(error);
+  }, [onError]);
+
+  const handleShouldReconnect = useCallback((data: { roomId: string }) => {
+    onShouldReconnect(data);
+  }, [onShouldReconnect]);
+
+  const handleGameRestored = useCallback((data: any) => {
+    onGameRestored(data);
+  }, [onGameRestored]);
+
+  const handleReconnectionFailed = useCallback((data: any) => {
+    onReconnectionFailed(data);
+  }, [onReconnectionFailed]);
+
+  const handlePlayerReconnected = useCallback((data: any) => {
+    onPlayerReconnected(data);
+  }, [onPlayerReconnected]);
+
+  const handleTurnTimerStarted = useCallback((data: { duration: number; startTime: number }) => {
+    onTurnTimerStarted(data);
+  }, [onTurnTimerStarted]);
+
+  const handleTurnTimeout = useCallback((data: { playerId: string; playerName: string }) => {
+    onTurnTimeout(data);
+  }, [onTurnTimeout]);
+
+  const handleRoomClosing = useCallback((data: { message: string }) => {
+    onRoomClosing(data);
+  }, [onRoomClosing]);
+
   useEffect(() => {
     if (!roomId || !userId) return;
 
@@ -73,36 +127,20 @@ export function useGameSocket({
     let stateRequestTimeout: NodeJS.Timeout | null = null;
     let hasJoined = false;
 
-    const handleGameState = (state: GameState) => {
-      onGameState(state);
-      if (stateRequestTimeout) {
-        clearTimeout(stateRequestTimeout);
-        stateRequestTimeout = null;
-      }
-    };
-
-    const handleGameStarted = (state: GameState) => {
-      onGameStarted(state);
-      setTimeout(() => requestHand(), 500);
-    };
-
-    const handleHandUpdate = (data: { hand: Card[] }) => {
-      onHandUpdate(data.hand);
-    };
-
+    // ✅ Register listeners with stable callback references
     socketService.socket.on('game_state', handleGameState);
     socketService.socket.on('game_started', handleGameStarted);
     socketService.socket.on('hand_update', handleHandUpdate);
-    socketService.socket.on('card_played', onCardPlayed);
-    socketService.socket.on('game_over', onGameOver);
-    socketService.socket.on('error', onError);
-    socketService.socket.on('should_reconnect', onShouldReconnect);
-    socketService.socket.on('game_restored', onGameRestored);
-    socketService.socket.on('reconnection_failed', onReconnectionFailed);
-    socketService.socket.on('player_reconnected', onPlayerReconnected);
-    socketService.socket.on('turn_timer_started', onTurnTimerStarted);
-    socketService.socket.on('turn_timeout', onTurnTimeout);
-    socketService.socket.on('room_closing', onRoomClosing);
+    socketService.socket.on('card_played', handleCardPlayed);
+    socketService.socket.on('game_over', handleGameOver);
+    socketService.socket.on('error', handleError);
+    socketService.socket.on('should_reconnect', handleShouldReconnect);
+    socketService.socket.on('game_restored', handleGameRestored);
+    socketService.socket.on('reconnection_failed', handleReconnectionFailed);
+    socketService.socket.on('player_reconnected', handlePlayerReconnected);
+    socketService.socket.on('turn_timer_started', handleTurnTimerStarted);
+    socketService.socket.on('turn_timeout', handleTurnTimeout);
+    socketService.socket.on('room_closing', handleRoomClosing);
 
     if (!hasJoined) {
       hasJoined = true;
@@ -120,40 +158,43 @@ export function useGameSocket({
       }
     }
 
+    // ✅ CRITICAL FIX: Ensure all listeners are removed and timeout is cleared
     return () => {
-      if (stateRequestTimeout) clearTimeout(stateRequestTimeout);
+      if (stateRequestTimeout) {
+        clearTimeout(stateRequestTimeout);
+        stateRequestTimeout = null;
+      }
       socketService.socket.off('game_state', handleGameState);
       socketService.socket.off('game_started', handleGameStarted);
       socketService.socket.off('hand_update', handleHandUpdate);
-      socketService.socket.off('card_played', onCardPlayed);
-      socketService.socket.off('game_over', onGameOver);
-      socketService.socket.off('error', onError);
-      socketService.socket.off('should_reconnect', onShouldReconnect);
-      socketService.socket.off('game_restored', onGameRestored);
-      socketService.socket.off('reconnection_failed', onReconnectionFailed);
-      socketService.socket.off('player_reconnected', onPlayerReconnected);
-      socketService.socket.off('turn_timer_started', onTurnTimerStarted);
-      socketService.socket.off('turn_timeout', onTurnTimeout);
-      socketService.socket.off('room_closing', onRoomClosing);
+      socketService.socket.off('card_played', handleCardPlayed);
+      socketService.socket.off('game_over', handleGameOver);
+      socketService.socket.off('error', handleError);
+      socketService.socket.off('should_reconnect', handleShouldReconnect);
+      socketService.socket.off('game_restored', handleGameRestored);
+      socketService.socket.off('reconnection_failed', handleReconnectionFailed);
+      socketService.socket.off('player_reconnected', handlePlayerReconnected);
+      socketService.socket.off('turn_timer_started', handleTurnTimerStarted);
+      socketService.socket.off('turn_timeout', handleTurnTimeout);
+      socketService.socket.off('room_closing', handleRoomClosing);
     };
   }, [
     roomId,
     userId,
     isReconnectAttempt,
-    onGameState,
-    onGameStarted,
-    onHandUpdate,
-    onCardPlayed,
-    onGameOver,
-    onError,
-    onShouldReconnect,
-    onGameRestored,
-    onReconnectionFailed,
-    onPlayerReconnected,
-    onTurnTimerStarted,
-    onTurnTimeout,
-    onRoomClosing,
-    requestHand,
+    handleGameState,
+    handleGameStarted,
+    handleHandUpdate,
+    handleCardPlayed,
+    handleGameOver,
+    handleError,
+    handleShouldReconnect,
+    handleGameRestored,
+    handleReconnectionFailed,
+    handlePlayerReconnected,
+    handleTurnTimerStarted,
+    handleTurnTimeout,
+    handleRoomClosing,
   ]);
 
   return {

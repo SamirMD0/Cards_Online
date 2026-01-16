@@ -1,13 +1,19 @@
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import { socketService } from "../socket";
 import type { Card, GameState } from "../types";
 
-export function useGameUI(gameState: GameState | null, navigate: any) {
+export function useGameUI(gameState: GameState | null) {
   const [showColorPicker, setShowColorPicker] = useState(false);
   const [pendingCard, setPendingCard] = useState<Card | null>(null);
   const [showGameOver, setShowGameOver] = useState(false);
   const [notification, setNotification] = useState("");
   const [showReconnectModal, setShowReconnectModal] = useState(false);
+
+  // ✅ CRITICAL FIX: Use ref to access latest gameState without triggering re-renders
+  const gameStateRef = useRef(gameState);
+  useEffect(() => {
+    gameStateRef.current = gameState;
+  }, [gameState]);
 
   // --- Notification Logic ---
   const showNotification = useCallback((message: string) => {
@@ -18,10 +24,10 @@ export function useGameUI(gameState: GameState | null, navigate: any) {
   // --- Socket Listeners for UI Events ---
   useEffect(() => {
     const handleGameStarted = () => showNotification('Game started! 🎮');
-    
+
+    // ✅ CRITICAL FIX: Use gameStateRef to access current state, not stale closure
     const handleCardPlayed = (data: any) => {
-      // Safe check for players array
-      const currentPlayers = gameState?.players || [];
+      const currentPlayers = gameStateRef.current?.players || [];
       const player = currentPlayers.find((p) => p.id === data.playerId);
       if (player) showNotification(`${player.name} played ${data.card.value}`);
     };
@@ -43,7 +49,7 @@ export function useGameUI(gameState: GameState | null, navigate: any) {
       socketService.socket.off('turn_timeout', handleTurnTimeout);
       socketService.socket.off('error', handleError);
     };
-  }, [gameState?.players, showNotification]);
+  }, [showNotification]); // ✅ FIXED: Only depend on showNotification, not gameState.players
 
   // --- Modal Logic (FIXED) ---
   useEffect(() => {

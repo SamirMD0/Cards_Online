@@ -4,6 +4,7 @@ import { socketService } from '../socket';
 export function useGameTimer(gameStarted: boolean, isMyTurn: boolean, roomId: string | undefined) {
   const [turnTimeRemaining, setTurnTimeRemaining] = useState(30);
   const hasSkippedTurnRef = useRef(false);
+  const rafIdRef = useRef<number | null>(null);
 
   // Sync with server timer events
   useEffect(() => {
@@ -20,15 +21,43 @@ export function useGameTimer(gameStarted: boolean, isMyTurn: boolean, roomId: st
     };
   }, []);
 
-  // Local Countdown
+  // ✅ CRITICAL FIX: Use requestAnimationFrame instead of setInterval for smoother updates
   useEffect(() => {
-    if (!gameStarted || !isMyTurn) return;
+    if (!gameStarted || !isMyTurn) {
+      if (rafIdRef.current) {
+        cancelAnimationFrame(rafIdRef.current);
+        rafIdRef.current = null;
+      }
+      return;
+    }
 
-    const interval = setInterval(() => {
-      setTurnTimeRemaining((prev) => Math.max(0, prev - 1));
-    }, 1000);
+    let lastUpdate = Date.now();
 
-    return () => clearInterval(interval);
+    const tick = () => {
+      const now = Date.now();
+      const elapsed = now - lastUpdate;
+
+      // Only update every second to prevent unnecessary re-renders
+      if (elapsed >= 1000) {
+        setTurnTimeRemaining((prev) => {
+          const next = Math.max(0, prev - 1);
+          // ✅ OPTIMIZATION: Only update if value actually changed
+          return next !== prev ? next : prev;
+        });
+        lastUpdate = now;
+      }
+
+      rafIdRef.current = requestAnimationFrame(tick);
+    };
+
+    rafIdRef.current = requestAnimationFrame(tick);
+
+    return () => {
+      if (rafIdRef.current) {
+        cancelAnimationFrame(rafIdRef.current);
+        rafIdRef.current = null;
+      }
+    };
   }, [gameStarted, isMyTurn]);
 
   // Handle Timeout (Auto-skip)

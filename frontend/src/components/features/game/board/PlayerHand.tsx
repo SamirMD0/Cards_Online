@@ -1,5 +1,6 @@
 // frontend/src/components/features/game/board/PlayerHand.tsx
 
+import { memo } from "react";
 import UnoCard, { CardColor } from "../../uno-cards/UnoCard";
 import PlayerAvatar from "../../../common/PlayerAvatar";
 import type { Card } from "../../../../types";
@@ -14,14 +15,15 @@ interface PlayerHandProps {
   onRequestHand: () => void;
 }
 
-export default function PlayerHand({
+// ✅ CRITICAL FIX: Memoize component to prevent timer-induced re-renders
+const PlayerHand = memo(({
   playerName,
   playerHand,
   isMyTurn,
   pendingDraw,
   onCardClick,
   onRequestHand,
-}: PlayerHandProps) {
+}: PlayerHandProps) => {
   const isMobile = typeof window !== "undefined" && window.innerWidth < 640;
 
   return (
@@ -117,4 +119,8 @@ export default function PlayerHand({
       </div>
     </div>
   );
-}
+});
+
+PlayerHand.displayName = 'PlayerHand';
+
+export default PlayerHand;
