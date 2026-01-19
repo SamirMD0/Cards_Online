@@ -12,7 +12,14 @@ export async function socketAuthMiddleware(socket: Socket, next: any) {
     }
     
     // Verify token and get user
-    const user = await AuthService.verifyToken(token);
+    const user = await AuthService.verifyToken(token) as {
+      id: string;
+      username: string;
+      email: string;
+      avatar: string | null;
+      createdAt: Date;
+      updatedAt: Date;
+    };
     
     // Attach user data to socket
     socket.data.userId = user.id;

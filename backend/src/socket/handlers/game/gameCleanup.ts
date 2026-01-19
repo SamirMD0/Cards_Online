@@ -37,17 +37,17 @@ export async function cleanupFinishedGame(
     console.log(`[GameCleanup] Saving game ${roomId} to database...`);
     await GameHistoryService.saveCompletedGame(game, room.roomCode);
 
-    // 3. Wait 30 seconds for clients to see winner screen
-    console.log(`[GameCleanup] Waiting 30s before cleanup...`);
-    await new Promise(resolve => setTimeout(resolve, 30000));
-
-    // 4. Clear turn timer
+    // 3. Clear turn timer IMMEDIATELY (before delay) to prevent orphaned timeouts
     const timerManager = TurnTimerManager.getInstance();
     timerManager.clearTimer(roomId);
 
+    // 4. Wait 30 seconds for clients to see winner screen
+    console.log(`[GameCleanup] Waiting 30s before cleanup...`);
+    await new Promise(resolve => setTimeout(resolve, 30000));
+
     // 5. Notify clients that room is closing
-    io.to(roomId).emit('room_closing', { 
-      message: 'Game has ended. Redirecting to lobby...' 
+    io.to(roomId).emit('room_closing', {
+      message: 'Game has ended. Redirecting to lobby...'
     });
 
     // 6. Delete from Redis and memory

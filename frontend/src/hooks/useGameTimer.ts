@@ -5,56 +5,44 @@ export function useGameTimer(gameStarted: boolean, isMyTurn: boolean, roomId: st
   const [turnTimeRemaining, setTurnTimeRemaining] = useState(30);
   const turnTimeRemainingRef = useRef(30);
   const hasSkippedTurnRef = useRef(false);
-  const intervalIdRef = useRef<NodeJS.Timeout | null>(null);
-  const lastDisplayUpdateRef = useRef(0);
+  const endTimeRef = useRef<number | null>(null);
 
   const handleTimerStarted = useCallback((data: { duration: number; startTime: number }) => {
-    const elapsed = Date.now() - data.startTime;
-    const remaining = Math.ceil((data.duration - elapsed) / 1000);
-    const clamped = Math.max(0, remaining);
-    turnTimeRemainingRef.current = clamped;
-    setTurnTimeRemaining(clamped);
+    // FIX: If duration is 30 (seconds), convert to 30000 (ms)
+    // If duration is already 30000, keep it.
+    const durationMs = data.duration < 1000 ? data.duration * 1000 : data.duration;
+
+    // ✅ FIX: Use client-side time to avoid clock skew (server vs client time diff)
+    // We trust that the event just arrived, so the turn starts NOW for this client.
+    endTimeRef.current = Date.now() + durationMs;
     hasSkippedTurnRef.current = false;
-    lastDisplayUpdateRef.current = Date.now();
+
+    const remaining = Math.max(0, Math.ceil((endTimeRef.current - Date.now()) / 1000));
+    turnTimeRemainingRef.current = remaining;
+    setTurnTimeRemaining(remaining);
   }, []);
 
   useEffect(() => {
-    if (!gameStarted || !isMyTurn) {
-      if (intervalIdRef.current) {
-        clearInterval(intervalIdRef.current);
-        intervalIdRef.current = null;
-      }
-      return;
-    }
+    if (!gameStarted || !endTimeRef.current) return;
 
-    intervalIdRef.current = setInterval(() => {
-      const next = Math.max(0, turnTimeRemainingRef.current - 1);
-      turnTimeRemainingRef.current = next;
+    const intervalId = setInterval(() => {
       const now = Date.now();
-      if (now - lastDisplayUpdateRef.current >= 1000) {
-        setTurnTimeRemaining(next);
-        lastDisplayUpdateRef.current = now;
-      }
-    }, 1000);
+      const remaining = Math.max(0, Math.ceil((endTimeRef.current! - now) / 1000));
 
-    return () => {
-      if (intervalIdRef.current) {
-        clearInterval(intervalIdRef.current);
-        intervalIdRef.current = null;
+      if (remaining !== turnTimeRemainingRef.current) {
+        turnTimeRemainingRef.current = remaining;
+        setTurnTimeRemaining(remaining);
       }
-    };
-  }, [gameStarted, isMyTurn]);
 
-  useEffect(() => {
-    const checkTimeout = setInterval(() => {
-      if (turnTimeRemainingRef.current === 0 && isMyTurn && !hasSkippedTurnRef.current && roomId) {
+      // Auto-skip logic for current player
+      if (remaining === 0 && isMyTurn && !hasSkippedTurnRef.current && roomId) {
         hasSkippedTurnRef.current = true;
         socketService.socket.emit("skip_turn", { roomId });
       }
-    }, 100);
+    }, 200); // Check every 200ms for smoothness, but only updates state every 1s
 
-    return () => clearInterval(checkTimeout);
-  }, [isMyTurn, roomId]);
+    return () => clearInterval(intervalId);
+  }, [gameStarted, isMyTurn, roomId]);
 
   return { turnTimeRemaining, handleTimerStarted };
 }

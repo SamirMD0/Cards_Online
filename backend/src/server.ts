@@ -142,6 +142,49 @@ setInterval(() => {
   AuthService.cleanupExpiredSessions();
 }, 60 * 60 * 1000);
 
+// ✅ FREE TIER: Redis cleanup cron (every 6 hours)
+setInterval(async () => {
+  try {
+    console.log('[Redis Cleanup] Starting expired key scan...');
+    const { redis } = await import('./lib/redisClient.js');
+
+    let cursor = '0';
+    let deletedCount = 0;
+
+    do {
+      // Use SCAN to avoid blocking (safe for production)
+      const result = await redis.scan(cursor, 'MATCH', 'game:*', 'COUNT', 100);
+      cursor = result[0];
+      const keys = result[1];
+
+      for (const key of keys) {
+        const ttl = await redis.ttl(key);
+        // Delete if expired or TTL < 1 hour (stale)
+        if (ttl < 3600) {
+          await redis.del(key);
+          deletedCount++;
+        }
+      }
+    } while (cursor !== '0');
+
+    if (deletedCount > 0) {
+      console.log(`[Redis Cleanup] ✅ Deleted ${deletedCount} expired keys`);
+    }
+  } catch (error) {
+    console.error('[Redis Cleanup] Error:', error);
+  }
+}, 6 * 60 * 60 * 1000); // Every 6 hours
+
+// ✅ FREE TIER: Metrics logging (every 5 minutes)
+setInterval(() => {
+  const used = process.memoryUsage();
+  const heapMB = Math.round(used.heapUsed / 1024 / 1024);
+  const rssMB = Math.round(used.rss / 1024 / 1024);
+  const socketCount = io.engine.clientsCount;
+
+  console.log(`[Metrics] Memory: ${heapMB}MB heap / ${rssMB}MB RSS | Sockets: ${socketCount}`);
+}, 5 * 60 * 1000); // Every 5 minutes
+
 /* ======================
    GRACEFUL SHUTDOWN
    ====================== */

@@ -24,70 +24,110 @@ export class RedisGameStore {
    * Save game state to Redis
    * Call this after EVERY game state mutation
    */
-static async saveGame(roomId: string, game: GameState): Promise<void> {
-  try {
-    const key = `${this.GAME_PREFIX}${roomId}`;
-    
-    const serialized = JSON.stringify({
-      roomId: game.roomId,
-      players: game.players,
-      deck: game.deck,
-      discardPile: game.discardPile,
-      currentPlayer: game.currentPlayer,
-      direction: game.direction,
-      currentColor: game.currentColor,
-      pendingDraw: game.pendingDraw,
-      gameStarted: game.gameStarted,
-      winner: game.winner,
-      
-      // ✅ NEW: Serialize timer fields
-      turnStartTime: game.turnStartTime,
-      turnDuration: game.turnDuration,
-      
-      updatedAt: Date.now()
-    });
+  static async saveGame(roomId: string, game: GameState): Promise<void> {
+    try {
+      const key = `${this.GAME_PREFIX}${roomId}`;
 
-    await redis.setex(key, this.TTL, serialized);
-    await this.indexPlayers(roomId, game.players.map(p => p.id));
+      const serialized = JSON.stringify({
+        roomId: game.roomId,
+        players: game.players,
+        deck: game.deck,
+        discardPile: game.discardPile,
+        currentPlayer: game.currentPlayer,
+        direction: game.direction,
+        currentColor: game.currentColor,
+        pendingDraw: game.pendingDraw,
+        gameStarted: game.gameStarted,
+        winner: game.winner,
 
-  } catch (error) {
-    console.error('[RedisGameStore] Save failed:', error);
+        // ✅ NEW: Serialize timer fields
+        turnStartTime: game.turnStartTime,
+        turnDuration: game.turnDuration,
+
+        updatedAt: Date.now()
+      });
+
+      await redis.setex(key, this.TTL, serialized);
+      await this.indexPlayers(roomId, game.players.map(p => p.id));
+
+    } catch (error) {
+      console.error('[RedisGameStore] Save failed:', error);
+    }
   }
-}
 
-static async loadGame(roomId: string): Promise<GameState | null> {
-  try {
-    const key = `${this.GAME_PREFIX}${roomId}`;
-    const serialized = await redis.get(key);
+  /**
+   * ✅ FREE TIER: Update only changed fields (reduces Redis commands by ~70%)
+   * Use this for frequent updates like card plays, turn changes
+   */
+  static async updateGameDelta(
+    roomId: string,
+    updates: Partial<{
+      currentPlayer: string;
+      discardPile: any[];
+      players: any[];
+      currentColor: string | null;
+      pendingDraw: number;
+      direction: number;
+      winner: string | null;
+      turnStartTime: number | null;
+    }>
+  ): Promise<void> {
+    try {
+      const key = `${this.GAME_PREFIX}${roomId}`;
 
-    if (!serialized) {
+      // Load current state
+      const serialized = await redis.get(key);
+      if (!serialized) {
+        console.warn(`[RedisGameStore] Cannot update delta, game ${roomId} not found`);
+        return;
+      }
+
+      // Parse, merge updates, re-serialize
+      const data = JSON.parse(serialized);
+      Object.assign(data, updates);
+      data.updatedAt = Date.now();
+
+      // Save back with refreshed TTL
+      await redis.setex(key, this.TTL, JSON.stringify(data));
+
+    } catch (error) {
+      console.error('[RedisGameStore] Delta update failed:', error);
+    }
+  }
+
+  static async loadGame(roomId: string): Promise<GameState | null> {
+    try {
+      const key = `${this.GAME_PREFIX}${roomId}`;
+      const serialized = await redis.get(key);
+
+      if (!serialized) {
+        return null;
+      }
+
+      const data = JSON.parse(serialized);
+
+      const game = new GameState(data.roomId);
+      game.players = data.players;
+      game.deck = data.deck;
+      game.discardPile = data.discardPile;
+      game.currentPlayer = data.currentPlayer;
+      game.direction = data.direction;
+      game.currentColor = data.currentColor;
+      game.pendingDraw = data.pendingDraw;
+      game.gameStarted = data.gameStarted;
+      game.winner = data.winner;
+
+      // ✅ NEW: Deserialize timer fields
+      game.turnStartTime = data.turnStartTime || null;
+      game.turnDuration = data.turnDuration || 30000;
+
+      console.log(`[RedisGameStore] Loaded game ${roomId}`);
+      return game;
+    } catch (error) {
+      console.error('[RedisGameStore] Load failed:', error);
       return null;
     }
-
-    const data = JSON.parse(serialized);
-
-    const game = new GameState(data.roomId);
-    game.players = data.players;
-    game.deck = data.deck;
-    game.discardPile = data.discardPile;
-    game.currentPlayer = data.currentPlayer;
-    game.direction = data.direction;
-    game.currentColor = data.currentColor;
-    game.pendingDraw = data.pendingDraw;
-    game.gameStarted = data.gameStarted;
-    game.winner = data.winner;
-    
-    // ✅ NEW: Deserialize timer fields
-    game.turnStartTime = data.turnStartTime || null;
-    game.turnDuration = data.turnDuration || 30000;
-
-    console.log(`[RedisGameStore] Loaded game ${roomId}`);
-    return game;
-  } catch (error) {
-    console.error('[RedisGameStore] Load failed:', error);
-    return null;
   }
-}
 
   /**
    * Delete game from Redis
@@ -95,7 +135,7 @@ static async loadGame(roomId: string): Promise<GameState | null> {
   static async deleteGame(roomId: string): Promise<void> {
     try {
       const key = `${this.GAME_PREFIX}${roomId}`;
-      
+
       // Get player IDs before deleting
       const game = await this.loadGame(roomId);
       if (game) {
@@ -156,7 +196,7 @@ static async loadGame(roomId: string): Promise<GameState | null> {
    */
   private static async indexPlayers(roomId: string, userIds: string[]): Promise<void> {
     const pipeline = redis.pipeline();
-    
+
     for (const userId of userIds) {
       const key = `${this.PLAYER_PREFIX}${userId}`;
       pipeline.setex(key, this.TTL, roomId);

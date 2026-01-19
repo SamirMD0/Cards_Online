@@ -21,6 +21,7 @@ function createPrismaClient(): PrismaClient {
       max: 3,                    // ✅ CRITICAL: Low pool size for free tier
       idleTimeoutMillis: 30000,  // 30 seconds
       connectionTimeoutMillis: 10000,
+      statement_timeout: 5000,   // ✅ Free tier: Kill queries after 5s
     });
 
     const adapter = new PrismaPg(pool);

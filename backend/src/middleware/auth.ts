@@ -16,7 +16,14 @@ export async function authMiddleware(req: Request, res: Response, next: NextFunc
     }
 
     // Verify token and get user
-    const user = await AuthService.verifyToken(token);
+    const user = await AuthService.verifyToken(token) as {
+      id: string;
+      username: string;
+      email: string;
+      avatar: string | null;
+      createdAt: Date;
+      updatedAt: Date;
+    };
 
     // Attach user to request
     req.user = user;
@@ -37,7 +44,14 @@ export async function optionalAuthMiddleware(req: Request, _res: Response, next:
     const token = req.cookies?.token || req.headers.authorization?.replace('Bearer ', '');
 
     if (token) {
-      const user = await AuthService.verifyToken(token);
+      const user = await AuthService.verifyToken(token) as {
+        id: string;
+        username: string;
+        email: string;
+        avatar: string | null;
+        createdAt: Date;
+        updatedAt: Date;
+      };
       req.user = user;
     }
   } catch (error) {

@@ -13,7 +13,7 @@ export class TurnTimerManager {
   private timers = new Map<string, NodeJS.Timeout>();
   private static instance: TurnTimerManager;
 
-  private constructor() {}
+  private constructor() { }
 
   static getInstance(): TurnTimerManager {
     if (!TurnTimerManager.instance) {
@@ -87,8 +87,10 @@ export class TurnTimerManager {
     gameManager: GameStateManager
   ): Promise<void> {
     try {
+      // Safety check: Verify game still exists (prevents orphaned timer callbacks)
       const game = await gameManager.getGame(roomId);
       if (!game || !game.gameStarted || game.winner) {
+        console.log(`[TurnTimer] Timer fired for ${roomId} but game no longer active, ignoring`);
         return;
       }
 

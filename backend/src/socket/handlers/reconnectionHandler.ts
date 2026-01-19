@@ -12,6 +12,11 @@ import { GameStateManager } from '../../managers/GameStateManager.js';
  * 3. Server checks if user was in an active game
  * 4. If yes, restore them to that game
  */
+
+// ✅ FREE TIER: Rate limit reconnection checks (1 per 10s per user)
+const reconnectionCheckLimiter = new Map<string, number>();
+const RECONNECTION_CHECK_COOLDOWN = 10000; // 10 seconds
+
 export function setupReconnectionHandler(
   _io: Server,
   socket: Socket,
@@ -28,6 +33,16 @@ export function setupReconnectionHandler(
         socket.emit('reconnection_result', { canReconnect: false });
         return;
       }
+
+      // ✅ FREE TIER: Rate limit to prevent reconnection storms
+      const now = Date.now();
+      const lastCheck = reconnectionCheckLimiter.get(userId);
+      if (lastCheck && now - lastCheck < RECONNECTION_CHECK_COOLDOWN) {
+        console.log(`[ReconnectionCheck] Rate limited for ${username}`);
+        socket.emit('reconnection_result', { canReconnect: false, reason: 'Too many requests' });
+        return;
+      }
+      reconnectionCheckLimiter.set(userId, now);
 
       console.log(`[ReconnectionCheck] Checking for user ${username} (${userId})`);
 

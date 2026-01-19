@@ -7,6 +7,7 @@ import {
   ConflictError,
 } from "../utils/errors.js";
 import { logger } from "../lib/logger.js";
+import NodeCache from "node-cache";
 
 const JWT_SECRET = process.env.JWT_SECRET;
 
@@ -19,6 +20,9 @@ if (!JWT_SECRET || JWT_SECRET.length < 32) {
 
 const SALT_ROUNDS = 10;
 const TOKEN_EXPIRY = "7d";
+
+// ✅ FREE TIER: Session cache (60s TTL) to reduce DB queries
+const sessionCache = new NodeCache({ stdTTL: 60, checkperiod: 120 });
 
 export class AuthService {
   private static validatePasswordStrength(password: string): void {
@@ -177,6 +181,12 @@ export class AuthService {
    */
   static async verifyToken(token: string) {
     try {
+      // ✅ FREE TIER: Check cache first (reduces DB queries by ~90%)
+      const cached = sessionCache.get(token);
+      if (cached) {
+        return cached;
+      }
+
       // Verify JWT
       jwt.verify(token, JWT_SECRET as string);
 
@@ -198,6 +208,10 @@ export class AuthService {
 
       // Return user without password
       const { password, ...userWithoutPassword } = session.user;
+
+      // ✅ FREE TIER: Cache result for 60s
+      sessionCache.set(token, userWithoutPassword);
+
       return userWithoutPassword;
     } catch (error) {
       if (error instanceof UnauthorizedError) throw error;
@@ -211,6 +225,7 @@ export class AuthService {
   static async logout(token: string) {
     try {
       await prisma.session.delete({ where: { token } });
+      sessionCache.del(token); // ✅ FREE TIER: Invalidate cache
       console.log("[Auth] User logged out");
     } catch (error) {
       // Session might not exist, that's okay

@@ -30,12 +30,13 @@ class RedisClient {
         maxRetriesPerRequest: 3,
         enableReadyCheck: false, // ✅ Upstash doesn't support INFO during handshake
         lazyConnect: false,
-        
+        maxLoadingRetryTime: 5000, // ✅ Free tier: Prevent infinite retry loops
+
         // ✅ TLS configuration (required for Upstash)
         tls: useTLS ? {
           rejectUnauthorized: true, // Validate SSL certificate
         } : undefined,
-        
+
         // ✅ Retry strategy
         retryStrategy: (times) => {
           if (times > RedisClient.MAX_RETRIES) {
@@ -51,7 +52,7 @@ class RedisClient {
         connectTimeout: 10000,
         commandTimeout: 5000,
         keepAlive: 30000,
-        
+
         // ✅ Don't queue if disconnected
         enableOfflineQueue: false,
       });
@@ -69,7 +70,7 @@ class RedisClient {
       RedisClient.instance.on('error', (err) => {
         console.error('❌ Redis error:', err.message);
         RedisClient.connectionAttempts++;
-        
+
         if (RedisClient.connectionAttempts > RedisClient.MAX_RETRIES) {
           console.error('💥 Redis permanently failed. Persistence disabled.');
         }
