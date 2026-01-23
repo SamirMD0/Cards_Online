@@ -1,5 +1,4 @@
-// backend/src/lib/prisma.ts
-// ✅ FIXED: Added PG adapter for production connection pooling
+// backend/src/lib/prisma.ts - REPLACE lines 8-42
 import { PrismaClient } from '@prisma/client';
 import { Pool } from 'pg';
 import { PrismaPg } from '@prisma/adapter-pg';
@@ -7,7 +6,6 @@ import { PrismaPg } from '@prisma/adapter-pg';
 const globalForPrisma = global as unknown as { prisma: PrismaClient };
 
 function createPrismaClient(): PrismaClient {
-  // ✅ PRODUCTION: Use adapter for connection pooling (Fly.io free tier)
   if (process.env.NODE_ENV === 'production') {
     const connectionString = process.env.DATABASE_URL;
 
@@ -15,13 +13,18 @@ function createPrismaClient(): PrismaClient {
       throw new Error('DATABASE_URL is required in production');
     }
 
-    // ✅ Connection pool optimized for 256MB RAM
+    // ✅ CRITICAL FIX: Add statement_timeout to connection string
+    const url = new URL(connectionString);
+    if (!url.searchParams.has('statement_timeout')) {
+      url.searchParams.set('statement_timeout', '5000');
+    }
+    const urlWithTimeout = url.toString();
+
     const pool = new Pool({
-      connectionString,
-      max: 3,                    // ✅ CRITICAL: Low pool size for free tier
-      idleTimeoutMillis: 30000,  // 30 seconds
+      connectionString: urlWithTimeout,
+      max: 3,
+      idleTimeoutMillis: 30000,
       connectionTimeoutMillis: 10000,
-      statement_timeout: 5000,   // ✅ Free tier: Kill queries after 5s
     });
 
     const adapter = new PrismaPg(pool);
@@ -32,7 +35,7 @@ function createPrismaClient(): PrismaClient {
     });
   }
 
-  // ✅ DEVELOPMENT: Direct connection (no adapter needed)
+  // Development: direct connection
   return new PrismaClient({
     log: process.env.NODE_ENV === 'development' ? ['error', 'warn'] : ['error'],
   });
@@ -44,7 +47,6 @@ if (process.env.NODE_ENV !== 'production') {
   globalForPrisma.prisma = prisma;
 }
 
-// Graceful shutdown
 process.on('beforeExit', async () => {
   await prisma.$disconnect();
 });
