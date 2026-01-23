@@ -6,7 +6,8 @@ A real-time multiplayer UNO game built with modern web technologies and deployed
 
 ## 🌐 Live Demo
 
-**Frontend**: [Production URL - deployed separately](example:https://cards-online-two.vercel.app/)  
+**Frontend**: [Production URL - deployed separately]
+**Vercel website**:[https://cards-online-two.vercel.app/]  
 **Backend**: Fly.io (free tier, single instance)
 
 ---
