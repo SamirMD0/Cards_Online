@@ -26,6 +26,7 @@ import { validateEnvironment } from "./utils/validateEnv.js";
 import helmet from "helmet";
 import healthRoutes from "./routes/health.routes.js";
 import { setupGracefulShutdown } from "./utils/shutdown.js";
+import { hybridAuthLimiter } from "./middleware/hybridAuthRateLimit.js";
 
 dotenv.config();
 validateEnvironment();
@@ -48,7 +49,7 @@ app.set("trust proxy", 1);
    RATE LIMITERS - MEMORY EFFICIENT
    ====================== */
 
-// Reduced limits for 256 MB memory
+// General API rate limit (50 requests/15min per IP)
 const apiLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 50,  // Reduced from 100
@@ -57,12 +58,9 @@ const apiLimiter = rateLimit({
   message: { error: "Too many requests, please try again later" },
 });
 
-const authLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 3,  // Reduced from 5
-  skipSuccessfulRequests: true,
-  message: { error: "Too many login attempts, try again in 15 minutes" },
-});
+// ✅ Auth rate limiting is now handled by hybridAuthRateLimit.ts
+// - IP-based: 20 failures/15min (anti-bot)
+// - User-based: 5 failures/15min (anti-credential stuffing)
 
 /* ======================
    GLOBAL MIDDLEWARE
@@ -112,7 +110,7 @@ app.use(healthRoutes);
    ====================== */
 
 app.use("/api", apiLimiter);
-app.use("/api/auth", authLimiter, authRoutes);
+app.use("/api/auth", authRoutes);  // ✅ Rate limiting handled inside routes (hybrid limiter)
 app.use("/api/friends", friendRoutes);
 
 /* ======================
@@ -183,6 +181,14 @@ setInterval(() => {
   const socketCount = io.engine.clientsCount;
 
   console.log(`[Metrics] Memory: ${heapMB}MB heap / ${rssMB}MB RSS | Sockets: ${socketCount}`);
+
+  // ✅ Hybrid rate limiter monitoring
+  const rateLimitStats = hybridAuthLimiter.getStats();
+  console.log(`[HybridRateLimit] IPs: ${rateLimitStats.ipTracked} | Users: ${rateLimitStats.usersTracked} | Memory: ${rateLimitStats.totalMemoryKB}KB`);
+
+  if (rateLimitStats.totalMemoryKB > 30 * 1024) {
+    console.warn('[HybridRateLimit] ⚠️ WARNING: Memory usage exceeds 30MB threshold!');
+  }
 }, 5 * 60 * 1000); // Every 5 minutes
 
 /* ======================
